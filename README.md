@@ -30,14 +30,14 @@ parameter. `tools/routing.py` instead requests alternative routes and filters ou
 3. `cp .env.example .env` and fill in values as the scripts below produce them.
 4. Run the numbered scripts in `scripts/` in order:
    - `00_enable_routes_api.sh` — enables `routes.googleapis.com` (done, idempotent to re-run).
-   - `01_discover_weathernext_listing.md` — **investigated, not found.** WeatherNext 3 does not
-     currently appear to exist as a public, subscribable BigQuery Analytics Hub listing — checked
-     via the API (no cross-org search endpoint exists), via a live human search of BigQuery
-     Studio's "+ ADD DATA" panel (only paid third-party weather connectors show up), and by
-     scanning every BigQuery project reachable from this account. See that file for the full
-     investigation and what to do if you get access some other way. `tools/weather.py` and
-     `config.py` deliberately run against placeholder dataset/table/column names copied from the
-     original blueprint until this changes.
+   - `01_discover_weathernext_listing.md` — **access requested, not yet granted.** WeatherNext 3
+     turns out to be allowlist-gated (the official WeatherNext Data Request form), not just hard
+     to find — a request is in flight. In the meantime, Google's official BigQuery docs for it
+     were shared and used to make `tools/weather.py`'s query **structurally correct against the
+     real schema already** (real table name, real nested-`forecast`-array shape, real
+     `ST_INTERSECTS`-on-`geography_polygon` spatial join) — only the real dataset ID, the exact
+     wind variable name, and precipitation units remain unverified pending actual access. See that
+     file for exactly what to check once access arrives.
    - `02_subscribe_analytics_hub_listing.sh` — ready to run once real listing IDs are known
      (`PUBLISHER_PROJECT`/`EXCHANGE_ID`/`LISTING_ID` env vars); not runnable today.
    - `03_create_maps_routes_api_key.sh` — done; key is in local `.env`.
@@ -50,12 +50,12 @@ streamlit run ui/app.py
 ```
 
 Select a mock shipment (`data/mock_shipments.json`, ETAs resolved to "now + N hours" at load time)
-and click "Run Disruption Check". Until WeatherNext 3 is actually subscribed (see above —
-currently not possible, not just not yet done), `check_route_weather` will fail with a BigQuery
-"dataset not found" error — this is expected and surfaces as an error in the UI rather than a
-silent wrong answer. Everything downstream of that call (thresholds, hazard polygons, routing,
-the agent loop, the UI) is built and tested against the placeholder schema and is ready to run
-the moment a real dataset/table is wired into `.env`.
+and click "Run Disruption Check". Until WeatherNext 3 access is granted and subscribed,
+`check_route_weather` will fail with a BigQuery "dataset not found" error — this is expected and
+surfaces as an error in the UI rather than a silent wrong answer. Everything downstream of that
+call (thresholds, hazard polygons, routing, the agent loop, the UI) is built and tested against
+the real documented schema (see `scripts/01_discover_weathernext_listing.md`) and is ready to run
+the moment a real dataset name lands in `.env`.
 
 ## Testing
 
@@ -63,7 +63,7 @@ the moment a real dataset/table is wired into `.env`.
 pytest --cov --cov-report=term-missing
 ```
 
-32 tests, ~91% coverage over `tools/` + `agent/`, no live credentials required — BigQuery and
+34 tests, ~91% coverage over `tools/` + `agent/`, no live credentials required — BigQuery and
 Routes API calls are mocked, and the Gemini function-calling loop replays from committed, sanitized
 cassettes in `tests/cassettes/` (recorded via `python -m tests._record_cassettes`, which does need
 live credentials and makes real billed calls).

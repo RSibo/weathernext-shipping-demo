@@ -1,16 +1,28 @@
 """check_route_weather: BigQuery GIS spatial-temporal join against WeatherNext 3.
 
-PLACEHOLDER SCHEMA: the column names below (wind_speed_mph, precip_mm_hr, temp_f, init_time,
-valid_time, geography) are copied from the blueprint's guesses. The real WeatherNext 3 listing has
-not been subscribed to yet (see scripts/01_discover_weathernext_listing.md) — replace these with
-the real schema before relying on this against live data. The QUALIFY/ROW_NUMBER
-nearest-valid-time-then-nearest-distance pattern below is independent of exact column names and
-should survive that correction.
+Query structure below matches Google's official WeatherNext 3 BigQuery documentation (real table
+names, real column-naming convention, real example queries) — NOT the original blueprint's guessed
+flat-table schema. Two things remain genuinely unverified pending actual dataset access (not
+guessed past reasonable confidence):
 
-Degree-based shapely buffering for hazard polygons is not metrically uniform (a fixed-degree
-buffer is ~constant in latitude but shrinks in longitude distance as latitude increases). Accepted
-as a deliberate simplification for a continental-US demo; a production version would reproject to
-a local equal-area/UTM CRS before buffering.
+1. The wind variable name (config.WEATHERNEXT_WIND_VARIABLE) — the docs' example queries only show
+   temperature and precipitation; wind isn't named anywhere in what's been shared.
+2. Precipitation units — assumed already in mm (total_precipitation_1hr_* is calibrated against
+   IMERG, whose native units are mm/hr), NOT the meters-per-timestep convention common in
+   ECMWF/GRIB-derived data. If real data turns out to be in meters, multiply by 1000 in
+   _row_to_observation below — flagged there, not silently guessed.
+
+The per-waypoint init-eligibility CTE chain (6-hourly inits cover a 360h horizon; interim 1-hourly
+inits only cover 48h) is this module's own design addition on top of the documented example
+queries (which are single-location, single-init lookups) and has never run against a real table.
+First action once access arrives: a manual live query to validate it before trusting it in the
+agent loop — see scripts/01_discover_weathernext_listing.md.
+
+Degree-based shapely buffering for the hazard polygon's safety margin is not metrically uniform (a
+fixed-degree buffer is ~constant in latitude but shrinks in longitude distance as latitude
+increases). Accepted as a deliberate simplification for a continental-US demo; a production version
+would reproject to a local equal-area/UTM CRS before buffering. The base shape itself (before
+buffering) is the table's real geography_polygon, not an approximation.
 """
 
 from __future__ import annotations
@@ -18,6 +30,7 @@ from __future__ import annotations
 from typing import Optional
 
 import shapely.geometry
+import shapely.wkt
 from google.cloud import bigquery
 
 import config
@@ -32,29 +45,53 @@ from tools.thresholds import evaluate_breach
 
 _QUERY_TEMPLATE = """
 WITH waypoints AS (
-  SELECT * FROM UNNEST(@waypoints)
+  SELECT * FROM UNNEST(@waypoints)  -- name STRING, lat FLOAT64, lon FLOAT64, eta TIMESTAMP
 ),
-candidates AS (
+candidate_inits AS (
+  -- Distinct init times within a lookback window generous enough to cover the max 360h horizon.
+  -- Filtering on init_time here (and again below) is what lets this prune the init_time partition
+  -- instead of scanning the whole table.
+  SELECT DISTINCT init_time
+  FROM `{project}.{dataset}.{table}`
+  WHERE init_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 16 DAY)
+),
+waypoint_inits AS (
+  -- Keep only (waypoint, init) pairs where this init's horizon actually reaches the waypoint's
+  -- ETA: 6-hourly inits (00/06/12/18 UTC) cover 360h; interim 1-hourly inits cover only 48h.
+  -- A naive "just use MAX(init_time)" would silently return a stale/wrong match for any waypoint
+  -- whose ETA is >48h out when the freshest init happens to be an interim one.
   SELECT
-    w.name,
-    w.lat,
-    w.lon,
-    w.eta,
-    f.wind_speed_mph,
-    f.precip_mm_hr,
-    f.temp_f,
-    f.valid_time,
-    ST_DISTANCE(f.geography, ST_GEOGPOINT(w.lon, w.lat)) AS dist_m,
-    ABS(TIMESTAMP_DIFF(f.valid_time, w.eta, MINUTE)) AS time_diff_min
+    w.name, w.lat, w.lon, w.eta, ci.init_time,
+    TIMESTAMP_DIFF(w.eta, ci.init_time, HOUR) AS lead_hours
   FROM waypoints w
-  JOIN `{project}.{dataset}.{table}` f
-    ON ST_DWITHIN(f.geography, ST_GEOGPOINT(w.lon, w.lat), @grid_radius_m)
-   AND f.init_time BETWEEN TIMESTAMP_SUB(w.eta, INTERVAL 2 DAY) AND w.eta
-   AND f.valid_time BETWEEN TIMESTAMP_SUB(w.eta, INTERVAL 3 HOUR) AND TIMESTAMP_ADD(w.eta, INTERVAL 3 HOUR)
+  JOIN candidate_inits ci
+    ON ci.init_time <= w.eta
+   AND (
+        (MOD(EXTRACT(HOUR FROM ci.init_time), 6) = 0 AND TIMESTAMP_DIFF(w.eta, ci.init_time, HOUR) <= 360)
+     OR (MOD(EXTRACT(HOUR FROM ci.init_time), 6) != 0 AND TIMESTAMP_DIFF(w.eta, ci.init_time, HOUR) <= 48)
+      )
+),
+best_init_per_waypoint AS (
+  -- The freshest ELIGIBLE init per waypoint, not just the freshest init overall.
+  SELECT name, lat, lon, eta, init_time, lead_hours
+  FROM waypoint_inits
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY name ORDER BY init_time DESC) = 1
 )
-SELECT name, lat, lon, eta, wind_speed_mph, precip_mm_hr, temp_f, valid_time, dist_m, time_diff_min
-FROM candidates
-QUALIFY ROW_NUMBER() OVER (PARTITION BY name ORDER BY time_diff_min ASC, dist_m ASC) = 1
+SELECT
+  b.name,
+  b.lat,
+  b.lon,
+  forecast.time AS valid_time,
+  forecast.temperature_2m_mean,
+  forecast.total_precipitation_1hr_p90,
+  forecast.{wind_var}_p90,
+  t1.geography_polygon
+FROM best_init_per_waypoint b
+JOIN `{project}.{dataset}.{table}` t1
+  ON t1.init_time = b.init_time
+ AND ST_INTERSECTS(t1.geography_polygon, ST_GEOGPOINT(b.lon, b.lat))
+CROSS JOIN UNNEST(t1.forecast) AS forecast
+QUALIFY ROW_NUMBER() OVER (PARTITION BY b.name ORDER BY ABS(forecast.hours - b.lead_hours) ASC) = 1
 """
 
 _bq_client: Optional[bigquery.Client] = None
@@ -67,15 +104,18 @@ def _get_client() -> bigquery.Client:
     return _bq_client
 
 
-def _build_hazard_polygon(lat: float, lon: float, waypoint_name: str, reason_summary: str) -> HazardPolygon:
-    half = config.WEATHERNEXT_GRID_DEGREES / 2
-    cell = shapely.geometry.box(lon - half, lat - half, lon + half, lat + half)
+def _build_hazard_polygon(geography_polygon_wkt: str, waypoint_name: str, reason_summary: str) -> HazardPolygon:
+    cell = shapely.wkt.loads(geography_polygon_wkt)
     buffered = cell.buffer(config.HAZARD_BUFFER_DEGREES)
     return HazardPolygon(
         geojson=shapely.geometry.mapping(buffered),
         waypoint_name=waypoint_name,
         reason_summary=reason_summary,
     )
+
+
+def _kelvin_to_fahrenheit(kelvin: float) -> float:
+    return (kelvin - 273.15) * 9 / 5 + 32
 
 
 def run_weather_check(
@@ -99,17 +139,16 @@ def run_weather_check(
         )
         for wp in request.waypoints
     ]
-    grid_radius_m = (config.WEATHERNEXT_GRID_DEGREES / 2) * 111_000  # degrees -> meters, approximate
 
     query = _QUERY_TEMPLATE.format(
         project=config.PROJECT_ID,
         dataset=config.WEATHERNEXT_DATASET,
         table=config.WEATHERNEXT_TABLE,
+        wind_var=config.WEATHERNEXT_WIND_VARIABLE,
     )
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
             bigquery.ArrayQueryParameter("waypoints", "STRUCT", waypoint_structs),
-            bigquery.ScalarQueryParameter("grid_radius_m", "FLOAT64", grid_radius_m),
         ]
     )
 
@@ -117,16 +156,22 @@ def run_weather_check(
 
     observations: list[WeatherObservation] = []
     for row in rows:
+        temp_f = _kelvin_to_fahrenheit(row["temperature_2m_mean"])
+        # ASSUMED already mm (see module docstring) — multiply by 1000 here if real data proves to
+        # be meters-per-timestep instead.
+        precip_mm_hr = row["total_precipitation_1hr_p90"]
+        wind_speed_key = f"{config.WEATHERNEXT_WIND_VARIABLE}_p90"
+        wind_speed_mph = row[wind_speed_key]
+
         breached, reasons = evaluate_breach(
-            wind_speed_mph=row["wind_speed_mph"],
-            precip_mm_hr=row["precip_mm_hr"],
-            temp_f=row["temp_f"],
+            wind_speed_mph=wind_speed_mph,
+            precip_mm_hr=precip_mm_hr,
+            temp_f=temp_f,
         )
         hazard_polygon = None
         if breached:
             hazard_polygon = _build_hazard_polygon(
-                lat=row["lat"],
-                lon=row["lon"],
+                geography_polygon_wkt=row["geography_polygon"],
                 waypoint_name=row["name"],
                 reason_summary="; ".join(reasons),
             )
@@ -135,9 +180,9 @@ def run_weather_check(
                 waypoint_name=row["name"],
                 location=Coordinate(lat=row["lat"], lon=row["lon"]),
                 valid_time=row["valid_time"],
-                wind_speed_mph=row["wind_speed_mph"],
-                precip_mm_hr=row["precip_mm_hr"],
-                temp_f=row["temp_f"],
+                wind_speed_mph=wind_speed_mph,
+                precip_mm_hr=precip_mm_hr,
+                temp_f=temp_f,
                 breached=breached,
                 reasons=reasons,
                 hazard_polygon=hazard_polygon,

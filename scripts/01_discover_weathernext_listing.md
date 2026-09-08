@@ -1,73 +1,58 @@
-# Discovering the WeatherNext 3 Analytics Hub listing (manual step)
+# WeatherNext 3 Analytics Hub subscription (manual step)
 
-**Status: investigated, not found — treated as not currently available.** `tools/weather.py` and
-`config.py` run against the placeholder dataset/table/column names copied from the original
-blueprint's guesses, by deliberate decision (not an oversight), until this changes.
+**Status: access requested (2026-09-08), not yet granted.** The user submitted the official
+WeatherNext Data Request form and shared Google's WeatherNext 3 BigQuery documentation, which
+confirms the real table schema (below) — so `tools/weather.py` is already written against the
+*real* query shape, not a guess. Only three things remain genuinely blocked on access:
 
-## What we tried (2026-09-08)
+1. The real **linked dataset ID** (chosen at subscribe time — can't be known in advance).
+2. The exact **wind variable name** (`config.WEATHERNEXT_WIND_VARIABLE`, currently a guess:
+   `wind_speed_10m`) — not shown in either of Google's example queries.
+3. Whether **precipitation is in mm or meters** (currently assumed mm, per `tools/weather.py`'s
+   module docstring) — needs a real row to confirm.
 
-- The Analytics Hub API has no cross-organization "search listings" method (only
-  `dataExchanges.listings.list`, which requires already knowing the publisher project + exchange
-  ID) and no `organizations.locations.dataExchanges.list` results for org `539770835457` at `us`,
-  `us-central1`, or `eu`.
-- This session's web search is blocked by org policy
-  (`constraints/vertexai.allowedPartnerModelFeatures`); other search engines fetched directly
-  block bot/scraper access.
-- Scanned every BigQuery project reachable from this account (`weathernext3-route-agent`,
-  `genai-showcase-search`, `fde-k8s-sandbox-dev-503722`, `hcls-capstone-project-503716`,
-  `hcls-capstone-project`) for any dataset already named like WeatherNext — none found.
-- **A human checked BigQuery Studio's "+ ADD DATA" panel directly** (project
-  `weathernext3-route-agent`): searching "weather" surfaces only paid third-party connectors
-  (AccuWeather) from Google Cloud Marketplace's data-connector catalog — not Analytics Hub's
-  public dataset exchange, and no "WeatherNext" result of any kind.
+## Earlier investigation (superseded)
 
-**Conclusion:** WeatherNext 3 does not currently appear to be a public, subscribable BigQuery
-Analytics Hub listing — at least not one discoverable from this org today. It may be in limited
-preview, allowlist-gated, or distributed through a different channel entirely (Google's actual
-WeatherNext/DeepMind forecasts have historically shipped via Earth Engine's data catalog, not
-BigQuery). If you obtain access some other way (a doc, an allowlist invite, a different product),
-revisit this file and the steps below.
+Before access was requested, this file documented an investigation that found no discoverable
+public Analytics Hub listing (no cross-org search API, blocked web search, a live Console search
+that only surfaced third-party connectors like AccuWeather). That conclusion is now understood
+differently: WeatherNext 3 is **allowlist-gated** (the Data Request form is the actual access
+path), not simply undiscoverable — which is exactly why it never showed up in a marketplace search.
 
-## How to find it
+## Confirmed real schema (from Google's official WeatherNext 3 BigQuery docs, 2026-09-08)
 
-1. Open the BigQuery Console: https://console.cloud.google.com/bigquery?project=weathernext3-route-agent
-2. Click **+ ADD DATA** (or the equivalent "Add" button in the Explorer panel) → **Search
-   marketplace listings** (or navigate directly to
-   https://console.cloud.google.com/bigquery/analytics-hub).
-3. Search for `WeatherNext`. If nothing appears under that exact name, also try `Weather Next`,
-   `Google WeatherNext`, or check the "Google Cloud Datasets" / "Google Research" publisher
-   sections directly — the listing name may not exactly match "WeatherNext 3".
-4. Once found, record here:
-   - Publisher project ID: `______`
-   - Data exchange ID: `______`
-   - Listing ID: `______`
-   - Spatial resolution variant (0.1° vs 0.05°) and its exact listing/table name: `______`
-5. Subscribe to the listing (via the Console's "Subscribe" button, or run
-   `scripts/02_subscribe_analytics_hub_listing.sh` once the IDs above are filled in). Subscribing
-   creates a **linked dataset** in `weathernext3-route-agent` — it does not copy data, but it is a
-   real resource; confirm before subscribing if using the script.
-6. After subscribing, run:
-   ```bash
-   bq ls --project_id=weathernext3-route-agent
-   bq show --schema --format=prettyjson weathernext3-route-agent:<LINKED_DATASET>.<TABLE>
-   ```
-   and paste the **real** column names, types, partitioning column, and clustering column below.
+- Distributed via BigQuery Analytics Hub. Subscribing links two tables into your project's dataset:
+  - `weathernext_3_0_0_0p1deg` — 0.1° grid, 19 surface variables × 6 stats (`mean`/`p10`/`p25`/
+    `p50`/`p75`/`p90`) = 114 metrics, hourly timesteps. **This is the table `tools/weather.py`
+    queries.**
+  - `weathernext_3_0_0_0p05deg` — 0.05° grid, 2m temperature/dewpoint only (12 metrics). Not used.
+- Each row is one `(geography_polygon, init_time)` cell/init pair. `geography_polygon` is the grid
+  cell boundary (a GEOGRAPHY polygon, not a point) — spatial matching is
+  `ST_INTERSECTS(geography_polygon, ST_GEOGPOINT(lon, lat))`, an exact point-in-cell test.
+- Forecasts are a **repeated field `forecast`**, accessed via `, UNNEST(forecast) AS forecast`.
+  Each element has `forecast.time` (absolute valid timestamp), `forecast.hours` (lead time from
+  `init_time`), and `forecast.<variable>_<stat>` columns, e.g. `temperature_2m_mean`,
+  `total_precipitation_1hr_p90`.
+- `init_time` is the partition column (as originally assumed) — filter on it for partition pruning.
+- Forecast horizon depends on init granularity: 6-hourly inits (00/06/12/18 UTC) → 360h horizon;
+  interim 1-hourly inits (all other hours) → 48h horizon only. `tools/weather.py`'s
+  `waypoint_inits`/`best_init_per_waypoint` CTEs pick the freshest *eligible* init per waypoint
+  accordingly — this logic is this repo's own addition (the docs' example queries are
+  single-location, single-init) and has never run against a real table. **First thing to do once
+  access arrives: a manual live query to validate it**, before trusting it in the agent loop.
 
-## Real schema (fill in after subscribing)
+## Once access is granted
 
-- Linked dataset name: `______`
-- Table name: `______`
-- Partitioning column: `______` (blueprint assumes `init_time`, TIMESTAMP)
-- Clustering column: `______` (blueprint assumes `geography`, GEOGRAPHY)
-- Columns actually present (do not assume any of these blueprint-guessed names are correct):
-  `wind_speed_10m_p90`, `total_precipitation_p90`, `temperature_2m_mean`, `forecast_hour`,
-  `init_time`, `geography`.
-
-## Once filled in
-
-Update:
-- `.env` (not `.env.example`): `WEATHERNEXT_DATASET`, `WEATHERNEXT_TABLE`.
-- `tools/weather.py`: replace the placeholder column names in `_QUERY_TEMPLATE` with the real
-  ones, and adjust the partition-pruning clause if the partitioning column differs from
-  `init_time`.
-- Remove the "PLACEHOLDER SCHEMA" warning comments in both files.
+1. Subscribe via the Console (or `scripts/02_subscribe_analytics_hub_listing.sh` once you have the
+   publisher project/exchange/listing IDs from the granted listing).
+2. `bq ls --project_id=weathernext3-route-agent` to get the real linked dataset name.
+3. `bq show --schema --format=prettyjson weathernext3-route-agent:<LINKED_DATASET>.weathernext_3_0_0_0p1deg`
+   to confirm the real wind variable name and inspect a few real rows for precipitation units.
+4. Update `.env`: `WEATHERNEXT_DATASET` (real name from step 2), and `WEATHERNEXT_WIND_VARIABLE`
+   if it differs from `wind_speed_10m`.
+5. If precipitation turns out to be in meters, not mm: fix the one flagged line in
+   `tools/weather.py`'s `run_weather_check` (multiply `total_precipitation_1hr_p90` by 1000).
+6. Run a manual live query exercising the `best_init_per_waypoint` CTE before trusting it — see
+   the horizon-eligibility note above.
+7. Re-run `scripts/04_verify_setup.sh` and the agent loop end-to-end (both a clear and a breached
+   mock shipment) before considering this done.

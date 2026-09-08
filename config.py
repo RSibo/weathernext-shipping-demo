@@ -16,13 +16,20 @@ load_dotenv()  # no-op if .env doesn't exist (e.g. in CI)
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "weathernext3-route-agent")
 BQ_LOCATION = os.getenv("BQ_LOCATION", "US")
 
-# PLACEHOLDER: not yet subscribed. See scripts/01_discover_weathernext_listing.md.
+# PLACEHOLDER: the linked dataset ID is chosen at subscribe time and still unknown — subscription
+# is pending. See scripts/01_discover_weathernext_listing.md.
 WEATHERNEXT_DATASET = os.getenv("WEATHERNEXT_DATASET", "weathernext3")
-WEATHERNEXT_TABLE = os.getenv("WEATHERNEXT_TABLE", "forecast")
+# CONFIRMED real table name (from Google's official WeatherNext 3 BigQuery docs) — not a guess.
+WEATHERNEXT_TABLE = os.getenv("WEATHERNEXT_TABLE", "weathernext_3_0_0_0p1deg")
+# Grid resolution of the table above (0.1deg); used only to size HAZARD_BUFFER_DEGREES's margin —
+# spatial joins use the table's real geography_polygon directly, not this value.
 WEATHERNEXT_GRID_DEGREES = float(os.getenv("WEATHERNEXT_GRID_DEGREES", "0.1"))
 # Extra outward buffer applied to a hazard grid cell before it's used to filter candidate routes —
 # deliberately conservative rather than exactly the forecast cell's edge.
 HAZARD_BUFFER_DEGREES = float(os.getenv("HAZARD_BUFFER_DEGREES", "0.05"))
+# UNVERIFIED GUESS: not shown in Google's example queries (only temperature/precipitation are).
+# Isolated here so correcting it once real access arrives is a one-line change, not a query edit.
+WEATHERNEXT_WIND_VARIABLE = os.getenv("WEATHERNEXT_WIND_VARIABLE", "wind_speed_10m")
 
 # No default: tools/routing.py raises at call time (not import time) if unset, so importing this
 # module and running unit tests never requires a real key.
