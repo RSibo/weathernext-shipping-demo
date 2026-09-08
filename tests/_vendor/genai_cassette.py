@@ -90,7 +90,9 @@ def genai_cassette(mode: str, cassette_file: Union[pathlib.Path, str]) -> Iterat
                 os.environ[k] = v
 
 
-def sanitize_cassette(cassette_path: Union[pathlib.Path, str], project_id: Optional[str] = None) -> None:
+def sanitize_cassette(
+    cassette_path: Union[pathlib.Path, str], project_id: Optional[str] = None
+) -> None:
     """In-place: drop auth-material headers entirely (don't redact-in-place — remove the key), and
     replace `projects/<id>/locations/...` with a placeholder so the file is safe to commit and
     reproduces the interaction on any project.
@@ -120,11 +122,17 @@ def sanitize_cassette(cassette_path: Union[pathlib.Path, str], project_id: Optio
     path.write_text(text)
 
 
-def assert_cassette_is_sanitized(cassette_path: Union[pathlib.Path, str], project_id: Optional[str] = None) -> None:
+def assert_cassette_is_sanitized(
+    cassette_path: Union[pathlib.Path, str], project_id: Optional[str] = None
+) -> None:
     """The commit-time gate: read the file back and fail loudly if sanitization was skipped."""
     text = pathlib.Path(cassette_path).read_text()
     lowered = text.lower()
     for header in _SANITIZE_HEADERS:
-        assert header not in lowered, f"cassette still contains a {header!r} header — re-sanitize before committing"
+        assert header not in lowered, (
+            f"cassette still contains a {header!r} header — re-sanitize before committing"
+        )
     if project_id:
-        assert project_id not in text, "cassette still contains a literal project id — re-sanitize before committing"
+        assert project_id not in text, (
+            "cassette still contains a literal project id — re-sanitize before committing"
+        )

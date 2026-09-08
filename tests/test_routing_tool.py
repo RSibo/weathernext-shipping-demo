@@ -4,8 +4,9 @@ import polyline as polyline_lib
 import pytest
 import respx
 from httpx import Response
+from pydantic import ValidationError
 
-from schemas import CandidateRoute, Coordinate, DetourRequest, HazardPolygon
+from schemas import CandidateRoute, Coordinate, DetourRequest, DetourResult, HazardPolygon
 from tools.polyline_codec import decode, to_linestring
 from tools.routing import RoutingError, _filter_against_hazards, compute_detour
 
@@ -27,9 +28,15 @@ def _hazard_box(min_lon, min_lat, max_lon, max_lat) -> HazardPolygon:
     return HazardPolygon(
         geojson={
             "type": "Polygon",
-            "coordinates": [[
-                [min_lon, min_lat], [max_lon, min_lat], [max_lon, max_lat], [min_lon, max_lat], [min_lon, min_lat],
-            ]],
+            "coordinates": [
+                [
+                    [min_lon, min_lat],
+                    [max_lon, min_lat],
+                    [max_lon, max_lat],
+                    [min_lon, max_lat],
+                    [min_lon, min_lat],
+                ]
+            ],
         },
         waypoint_name="hazard-stop",
         reason_summary="wind",
@@ -38,7 +45,12 @@ def _hazard_box(min_lon, min_lat, max_lon, max_lat) -> HazardPolygon:
 
 def _candidate_from_points(points_lat_lon, distance=1000, duration=600) -> CandidateRoute:
     encoded = polyline_lib.encode(points_lat_lon)
-    return CandidateRoute(polyline=encoded, distance_meters=distance, duration_seconds=duration, intersects_hazard=False)
+    return CandidateRoute(
+        polyline=encoded,
+        distance_meters=distance,
+        duration_seconds=duration,
+        intersects_hazard=False,
+    )
 
 
 def test_filter_marks_clean_candidate_as_not_intersecting():
@@ -113,6 +125,7 @@ def test_compute_detour_returns_clear_route_when_one_candidate_avoids_hazard():
     assert result.status == "clear_route_found"
     assert result.still_hazardous is False
     assert result.chosen_route.intersects_hazard is False
+    assert result.advisory_guidance is None
     assert len(result.all_candidates) == 2
 
     # baseline_route is the API's first (default, hazard-crossing) candidate; deltas are computed
@@ -139,11 +152,18 @@ def test_compute_detour_flags_still_hazardous_when_no_clean_candidate():
 
     assert result.status == "no_clear_route_available"
     assert result.still_hazardous is True
+    assert result.advisory_guidance is not None
+    assert (
+        "hold the vehicle" in result.advisory_guidance
+        and "delay departure" in result.advisory_guidance
+    )
 
 
 @respx.mock
 def test_compute_detour_raises_routing_error_on_http_failure():
-    respx.post("https://routes.googleapis.com/directions/v2:computeRoutes").mock(return_value=Response(500))
+    respx.post("https://routes.googleapis.com/directions/v2:computeRoutes").mock(
+        return_value=Response(500)
+    )
     request = DetourRequest(
         shipment_id="ship-1",
         origin=Coordinate(lat=0.0, lon=0.0),
@@ -153,6 +173,38 @@ def test_compute_detour_raises_routing_error_on_http_failure():
 
     with pytest.raises(RoutingError):
         compute_detour(request, api_key="fake-key")
+
+
+def test_detour_result_rejects_hazardous_without_advisory_guidance():
+    baseline = _candidate_from_points([(0.0, 0.0), (1.0, 1.0)])
+    with pytest.raises(ValidationError, match="still_hazardous=True requires advisory_guidance"):
+        DetourResult(
+            shipment_id="ship-1",
+            status="no_clear_route_available",
+            chosen_route=baseline,
+            all_candidates=[baseline],
+            still_hazardous=True,
+            baseline_route=baseline,
+            distance_delta_meters=0,
+            eta_delta_seconds=0,
+            advisory_guidance=None,
+        )
+
+
+def test_detour_result_rejects_advisory_guidance_when_not_hazardous():
+    baseline = _candidate_from_points([(0.0, 0.0), (1.0, 1.0)])
+    with pytest.raises(ValidationError, match="advisory_guidance must be None"):
+        DetourResult(
+            shipment_id="ship-1",
+            status="clear_route_found",
+            chosen_route=baseline,
+            all_candidates=[baseline],
+            still_hazardous=False,
+            baseline_route=baseline,
+            distance_delta_meters=0,
+            eta_delta_seconds=0,
+            advisory_guidance="should not be set",
+        )
 
 
 def test_compute_detour_raises_without_api_key():
@@ -167,3 +219,32 @@ def test_compute_detour_raises_without_api_key():
     )
     with pytest.raises(RoutingError):
         compute_detour(request, api_key="")
+
+
+@respx.mock
+def test_compute_detour_passes_intermediates_to_routes_api():
+    import json
+
+    route_mock = respx.post("https://routes.googleapis.com/directions/v2:computeRoutes").mock(
+        return_value=Response(
+            200,
+            json=_routes_response([[(0.0, 0.0), (5.0, 5.0), (10.0, 10.0)]]),
+        )
+    )
+    request = DetourRequest(
+        shipment_id="ship-1",
+        origin=Coordinate(lat=0.0, lon=0.0),
+        destination=Coordinate(lat=10.0, lon=10.0),
+        intermediates=[Coordinate(lat=5.0, lon=5.0)],
+        hazard_polygons=[],
+    )
+
+    result = compute_detour(request, api_key="fake-key")
+
+    assert result.status == "clear_route_found"
+    assert route_mock.called
+    sent_body = json.loads(route_mock.calls.last.request.content)
+    assert "intermediates" in sent_body
+    assert sent_body["intermediates"] == [
+        {"location": {"latLng": {"latitude": 5.0, "longitude": 5.0}}}
+    ]

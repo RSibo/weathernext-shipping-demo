@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
 import pydeck
 
 from schemas import DetourResult, RouteWeatherResult, Shipment
 from tools.polyline_codec import decode
+
+logger = logging.getLogger(__name__)
 
 _PLANNED_ROUTE_COLOR = [66, 133, 244]  # blue
 _DETOUR_ROUTE_COLOR = [52, 168, 83]  # green
@@ -34,7 +37,23 @@ def build_deck(
 ) -> pydeck.Deck:
     layers = []
 
-    planned_path = [[wp.location.lon, wp.location.lat] for wp in shipment.all_waypoints()]
+    planned_path = None
+    if detour_result is not None and detour_result.baseline_route.polyline:
+        try:
+            planned_path = [
+                [lon, lat] for lat, lon in decode(detour_result.baseline_route.polyline)
+            ]
+        except Exception:
+            logger.warning(
+                "Failed to decode baseline_route polyline %r; falling back to straight-line "
+                "waypoint path.",
+                detour_result.baseline_route.polyline,
+                exc_info=True,
+            )
+            planned_path = None
+    if planned_path is None:
+        planned_path = [[wp.location.lon, wp.location.lat] for wp in shipment.all_waypoints()]
+
     layers.append(
         pydeck.Layer(
             "PathLayer",
@@ -92,16 +111,23 @@ def build_deck(
     )
 
     if detour_result is not None:
-        detour_path = [[lon, lat] for lat, lon in decode(detour_result.chosen_route.polyline)]
-        layers.append(
-            pydeck.Layer(
-                "PathLayer",
-                data=[{"path": detour_path, "name": "Detour route"}],
-                get_path="path",
-                get_color=_DETOUR_ROUTE_COLOR,
-                width_min_pixels=4,
+        try:
+            detour_path = [[lon, lat] for lat, lon in decode(detour_result.chosen_route.polyline)]
+            layers.append(
+                pydeck.Layer(
+                    "PathLayer",
+                    data=[{"path": detour_path, "name": "Detour route"}],
+                    get_path="path",
+                    get_color=_DETOUR_ROUTE_COLOR,
+                    width_min_pixels=4,
+                )
             )
-        )
+        except Exception:
+            logger.warning(
+                "Failed to decode chosen_route polyline %r; detour route will not be rendered.",
+                detour_result.chosen_route.polyline,
+                exc_info=True,
+            )
 
     return pydeck.Deck(
         layers=layers,

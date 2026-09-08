@@ -17,8 +17,16 @@ def _make_request() -> RouteWeatherRequest:
     return RouteWeatherRequest(
         shipment_id="ship-1",
         waypoints=[
-            Waypoint(name="clear-stop", location=Coordinate(lat=29.76, lon=-95.37), eta=datetime.now(timezone.utc)),
-            Waypoint(name="breach-stop", location=Coordinate(lat=32.78, lon=-96.81), eta=datetime.now(timezone.utc)),
+            Waypoint(
+                name="clear-stop",
+                location=Coordinate(lat=29.76, lon=-95.37),
+                eta=datetime.now(timezone.utc),
+            ),
+            Waypoint(
+                name="breach-stop",
+                location=Coordinate(lat=32.78, lon=-96.81),
+                eta=datetime.now(timezone.utc),
+            ),
         ],
     )
 
@@ -50,7 +58,13 @@ def test_no_rows_breached_when_below_thresholds():
     client = _mock_client(rows)
     request = RouteWeatherRequest(
         shipment_id="ship-1",
-        waypoints=[Waypoint(name="clear-stop", location=Coordinate(lat=29.76, lon=-95.37), eta=datetime.now(timezone.utc))],
+        waypoints=[
+            Waypoint(
+                name="clear-stop",
+                location=Coordinate(lat=29.76, lon=-95.37),
+                eta=datetime.now(timezone.utc),
+            )
+        ],
     )
 
     result = run_weather_check(request, bq_client=client)
@@ -65,7 +79,13 @@ def test_breach_row_gets_hazard_polygon_built_from_real_geography_polygon():
     client = _mock_client(rows)
     request = RouteWeatherRequest(
         shipment_id="ship-1",
-        waypoints=[Waypoint(name="breach-stop", location=Coordinate(lat=32.78, lon=-96.81), eta=datetime.now(timezone.utc))],
+        waypoints=[
+            Waypoint(
+                name="breach-stop",
+                location=Coordinate(lat=32.78, lon=-96.81),
+                eta=datetime.now(timezone.utc),
+            )
+        ],
     )
 
     result = run_weather_check(request, bq_client=client)
@@ -90,7 +110,13 @@ def test_kelvin_to_fahrenheit_conversion():
     client = _mock_client(rows)
     request = RouteWeatherRequest(
         shipment_id="ship-1",
-        waypoints=[Waypoint(name="clear-stop", location=Coordinate(lat=29.76, lon=-95.37), eta=datetime.now(timezone.utc))],
+        waypoints=[
+            Waypoint(
+                name="clear-stop",
+                location=Coordinate(lat=29.76, lon=-95.37),
+                eta=datetime.now(timezone.utc),
+            )
+        ],
     )
 
     result = run_weather_check(request, bq_client=client)
@@ -144,3 +170,37 @@ def test_query_respects_init_horizon_eligibility_rule():
     assert "MOD(EXTRACT(HOUR FROM ci.init_time), 6) = 0" in sql_text
     assert "<= 360" in sql_text
     assert "<= 48" in sql_text
+
+
+def test_run_weather_check_raises_on_empty_results():
+    import pytest
+
+    client = _mock_client([])
+    request = _make_request()
+
+    with pytest.raises(RuntimeError) as exc:
+        run_weather_check(request, bq_client=client)
+    assert "No WeatherNext forecast records found" in str(exc.value)
+
+
+def test_run_weather_check_detects_unmonitored_waypoints():
+    # Only return row for clear-stop; breach-stop has missing data
+    rows = [_row("clear-stop", 29.76, -95.37, temp_k=294.26, precip_mm=0, wind_mph=10)]
+    client = _mock_client(rows)
+    request = _make_request()
+
+    result = run_weather_check(request, bq_client=client)
+
+    assert result.unmonitored_waypoints == ["breach-stop"]
+    assert len(result.observations) == 1
+
+
+def test_query_uses_minute_level_timestamp_matching():
+    rows = [_row("clear-stop", 29.76, -95.37, temp_k=294.26, precip_mm=0, wind_mph=10)]
+    client = _mock_client(rows)
+    request = _make_request()
+
+    run_weather_check(request, bq_client=client)
+
+    sql_text = client.query.call_args[0][0]
+    assert "TIMESTAMP_DIFF(forecast.time, b.eta, MINUTE)" in sql_text

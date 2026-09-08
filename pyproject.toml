@@ -57,7 +57,7 @@ asyncio_mode = "strict"
 
 [tool.coverage.run]
 branch = true
-source = ["tools", "agent"]
+source = ["tools", "agent", "ui.map_layers", "mcp_server"]
 
 [tool.coverage.report]
 # exclude_also, not exclude_lines: the latter replaces coverage's defaults and would silently

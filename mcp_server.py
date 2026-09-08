@@ -53,10 +53,18 @@ def build_server() -> MCPServer:
             "wind/precipitation/temperature plus deterministic safety-threshold breaches."
         ),
     )
-    async def check_route_weather(shipment_id: str, waypoints: list[Waypoint]) -> RouteWeatherResult:
+    async def check_route_weather(
+        shipment_id: str, waypoints: list[Waypoint], cargo_description: Optional[str] = None
+    ) -> RouteWeatherResult:
         """Args: shipment_id — caller-assigned identifier, echoed back in the result.
-        waypoints — ordered list of {name, location: {lat, lon}, eta} along the route."""
-        request = RouteWeatherRequest(shipment_id=shipment_id, waypoints=waypoints)
+        waypoints — ordered list of {name, location: {lat, lon}, eta} along the route.
+        cargo_description — freeform cargo/trailer description (e.g. "dry van", "empty"); used to
+        select the cargo-aware wind threshold (35mph vs 45mph). Must be supplied by the caller —
+        this server has no Shipment record of its own to read it from, unlike agent/loop.py's
+        in-process tool, which resolves it automatically from the shipment being reviewed."""
+        request = RouteWeatherRequest(
+            shipment_id=shipment_id, waypoints=waypoints, cargo_description=cargo_description
+        )
         # BigQuery client calls are blocking; off the event loop, same reason k8s_docs_server.py
         # wraps its BM25 search in anyio.to_thread.run_sync.
         return await anyio.to_thread.run_sync(lambda: run_weather_check(request))
@@ -78,7 +86,9 @@ def build_server() -> MCPServer:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(prog=SERVER_NAME, description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        prog=SERVER_NAME, description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--transport", choices=("stdio", "sse", "streamable-http"), default="stdio")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8932)

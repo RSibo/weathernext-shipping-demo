@@ -34,14 +34,21 @@ class RoutingError(RuntimeError):
     available", which is a successful call with a hazardous result."""
 
 
-def _call_compute_routes(origin, destination, *, api_key: str) -> list[dict]:
+def _call_compute_routes(origin, destination, intermediates=None, *, api_key: str) -> list[dict]:
     body = {
         "origin": {"location": {"latLng": {"latitude": origin.lat, "longitude": origin.lon}}},
-        "destination": {"location": {"latLng": {"latitude": destination.lat, "longitude": destination.lon}}},
+        "destination": {
+            "location": {"latLng": {"latitude": destination.lat, "longitude": destination.lon}}
+        },
         "travelMode": "DRIVE",
         "computeAlternativeRoutes": True,
         "routingPreference": "TRAFFIC_AWARE",
     }
+    if intermediates:
+        body["intermediates"] = [
+            {"location": {"latLng": {"latitude": wp.lat, "longitude": wp.lon}}}
+            for wp in intermediates
+        ]
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": api_key,
@@ -56,7 +63,9 @@ def _call_compute_routes(origin, destination, *, api_key: str) -> list[dict]:
     return response.json().get("routes", [])
 
 
-def _filter_against_hazards(candidates: list[CandidateRoute], hazard_polygons: list) -> list[CandidateRoute]:
+def _filter_against_hazards(
+    candidates: list[CandidateRoute], hazard_polygons: list
+) -> list[CandidateRoute]:
     if not hazard_polygons:
         return candidates
 
@@ -69,7 +78,10 @@ def _filter_against_hazards(candidates: list[CandidateRoute], hazard_polygons: l
         intersection_length = linestring.intersection(hazard_union).length if intersects else 0.0
         filtered.append(
             candidate.model_copy(
-                update={"intersects_hazard": intersects, "intersection_length_deg": intersection_length}
+                update={
+                    "intersects_hazard": intersects,
+                    "intersection_length_deg": intersection_length,
+                }
             )
         )
     return filtered
@@ -81,7 +93,12 @@ def compute_detour(request: DetourRequest, *, api_key: str | None = None) -> Det
     if not key:
         raise RoutingError("GOOGLE_MAPS_ROUTES_API_KEY is not set")
 
-    raw_routes = _call_compute_routes(request.origin, request.destination, api_key=key)
+    raw_routes = _call_compute_routes(
+        request.origin,
+        request.destination,
+        intermediates=request.intermediates,
+        api_key=key,
+    )
     if not raw_routes:
         raise RoutingError("Routes API returned no candidate routes")
 
@@ -109,6 +126,17 @@ def compute_detour(request: DetourRequest, *, api_key: str | None = None) -> Det
         status = "no_clear_route_available"
         still_hazardous = True
 
+    advisory_guidance = None
+    if still_hazardous:
+        # still_hazardous is only ever True when hazard_polygons was non-empty (an empty hazard
+        # list makes every candidate trivially "clean" — see _filter_against_hazards's early
+        # return above), so the schema's own model_validator enforces this pairing unconditionally.
+        advisory_guidance = (
+            "Severe hazard directly encompasses route corridor or waypoint(s). Spatial rerouting cannot bypass "
+            "the impact area; dispatcher should hold the vehicle at the prior safe staging area "
+            "or delay departure until the weather system clears."
+        )
+
     return DetourResult(
         shipment_id=request.shipment_id,
         status=status,
@@ -118,4 +146,5 @@ def compute_detour(request: DetourRequest, *, api_key: str | None = None) -> Det
         baseline_route=baseline,
         distance_delta_meters=chosen.distance_meters - baseline.distance_meters,
         eta_delta_seconds=chosen.duration_seconds - baseline.duration_seconds,
+        advisory_guidance=advisory_guidance,
     )

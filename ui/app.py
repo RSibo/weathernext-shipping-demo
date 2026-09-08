@@ -1,15 +1,15 @@
 """Streamlit dispatcher UI. Single-process: calls agent.loop.run_advisory_with_context directly,
-no HTTP layer — appropriate for a single-user dispatcher demo, not a scope this app was ever asked
-to grow into.
+no HTTP layer — appropriate for a single-user dispatcher demo.
 """
 
 from __future__ import annotations
 
+import shapely.geometry
 import streamlit as st
 
 from agent.loop import run_advisory_with_context
 from data import load_mock_shipments
-from schemas import Shipment
+from schemas import HazardPolygon, RouteWeatherResult, Shipment, WeatherObservation
 from ui.map_layers import build_deck
 
 st.set_page_config(page_title="WeatherNext Route Disruption Copilot", layout="wide")
@@ -27,6 +27,67 @@ def _find_shipment(shipment_id: str) -> Shipment:
     return Shipment.model_validate(raw)
 
 
+def _generate_simulated_weather(shipment: Shipment, scenario: str) -> RouteWeatherResult:
+    all_wp = shipment.all_waypoints()
+    observations = []
+    # Pick target breach waypoint (prefer first intermediate waypoint if present, else destination)
+    target_idx = 1 if len(all_wp) > 2 else (len(all_wp) - 1)
+
+    for idx, wp in enumerate(all_wp):
+        is_breach_target = (idx == target_idx) and ("Breach" in scenario)
+        if is_breach_target:
+            if "Black Ice" in scenario:
+                wind = 14.0
+                precip = 3.2
+                temp = 28.5
+                reasons = [f"Black ice risk: {temp:.1f}°F with {precip:.1f}mm/hr precipitation"]
+            else:
+                wind = 54.0
+                precip = 32.0
+                temp = 68.0
+                reasons = [
+                    f"Wind {wind:.1f}mph exceeds 45mph threshold",
+                    f"Precipitation {precip:.1f}mm/hr exceeds 25mm/hr threshold",
+                ]
+
+            lat, lon = wp.location.lat, wp.location.lon
+            box = shapely.geometry.box(lon - 0.15, lat - 0.15, lon + 0.15, lat + 0.15)
+            hazard = HazardPolygon(
+                geojson=shapely.geometry.mapping(box),
+                waypoint_name=wp.name,
+                reason_summary="; ".join(reasons),
+            )
+            observations.append(
+                WeatherObservation(
+                    waypoint_name=wp.name,
+                    location=wp.location,
+                    valid_time=wp.eta,
+                    wind_speed_mph=wind,
+                    precip_mm_hr=precip,
+                    temp_f=temp,
+                    breached=True,
+                    reasons=reasons,
+                    hazard_polygon=hazard,
+                )
+            )
+        else:
+            observations.append(
+                WeatherObservation(
+                    waypoint_name=wp.name,
+                    location=wp.location,
+                    valid_time=wp.eta,
+                    wind_speed_mph=12.0,
+                    precip_mm_hr=0.0,
+                    temp_f=72.0,
+                    breached=False,
+                    reasons=[],
+                    hazard_polygon=None,
+                )
+            )
+
+    return RouteWeatherResult(shipment_id=shipment.shipment_id, observations=observations)
+
+
 st.title("WeatherNext Route Disruption Copilot")
 
 shipment_ids = [s["shipment_id"] for s in _shipments()]
@@ -35,23 +96,79 @@ shipment = _find_shipment(selected_id)
 
 st.sidebar.markdown(f"**Carrier:** {shipment.carrier or 'n/a'}")
 st.sidebar.markdown(f"**Cargo:** {shipment.cargo_description or 'n/a'}")
+
+st.sidebar.markdown("---")
+data_source = st.sidebar.radio(
+    "Weather Data Source",
+    ["Simulation Mode (Offline Demo)", "Live WeatherNext 3 (BigQuery)"],
+    index=0,
+    help="Simulation mode allows testing live Gemini reasoning and Maps routing without waiting for BigQuery dataset allowlisting.",
+)
+
+scenario = None
+if data_source == "Simulation Mode (Offline Demo)":
+    scenario = st.sidebar.selectbox(
+        "Weather Scenario",
+        [
+            "Severe Storm & High Wind (Breach)",
+            "Black Ice Risk (Breach)",
+            "Clear Weather (Safe, No Breach)",
+        ],
+    )
+
 run_clicked = st.sidebar.button("Run Disruption Check", type="primary")
 
-state_key = f"advisory::{selected_id}"
+state_key = f"advisory::{selected_id}::{data_source}::{scenario}"
 if run_clicked:
-    with st.spinner("Checking WeatherNext 3 forecasts and reasoning over the route..."):
+    with st.spinner("Checking weather forecasts and reasoning over the route with Gemini..."):
+        weather_override = None
+        if data_source == "Simulation Mode (Offline Demo)" and scenario:
+            weather_override = _generate_simulated_weather(shipment, scenario)
+
         try:
-            advisory = run_advisory_with_context(shipment)
-        except Exception as exc:  # live BigQuery/Routes/Gemini failure (e.g. dataset not yet subscribed)
-            st.session_state[state_key] = {"error": str(exc)}
+            advisory = run_advisory_with_context(shipment, weather_result_override=weather_override)
+        except Exception as exc:
+            err_msg = str(exc)
+            # Narrow, specific signal only: BigQuery's own "dataset not found" message. The
+            # earlier version also matched the bare substring "weathernext3" (the project id),
+            # which would have mislabeled an unrelated error — e.g. an auth/IAM failure that
+            # happens to mention the project id — as "switch to simulation mode".
+            if "Not found: Dataset" in err_msg and "weathernext" in err_msg.lower():
+                err_msg = (
+                    "BigQuery WeatherNext 3 dataset is not yet subscribed in this GCP project. "
+                    "Switch to 'Simulation Mode (Offline Demo)' in the sidebar to test with live Gemini & Maps routing."
+                )
+            st.session_state[state_key] = {"error": err_msg}
         else:
             st.session_state[state_key] = {
                 "text": advisory.text,
                 "weather_result": advisory.weather_result,
                 "detour_result": advisory.detour_result,
+                "simulated": weather_override is not None,
             }
 
 result = st.session_state.get(state_key)
+
+if result and "error" not in result:
+    m1, m2, m3 = st.columns(3)
+    weather_res = result.get("weather_result")
+    detour_res = result.get("detour_result")
+
+    if weather_res and weather_res.any_breach:
+        m1.metric(
+            "Safety Status", "Breach Detected", delta="Action Required", delta_color="inverse"
+        )
+    else:
+        m1.metric("Safety Status", "Clear", delta="Normal Operations")
+
+    if detour_res:
+        delta_km = detour_res.distance_delta_meters / 1000
+        delta_min = detour_res.eta_delta_seconds / 60
+        m2.metric("Distance Delta", f"{delta_km:+.1f} km")
+        m3.metric("ETA Delta", f"{delta_min:+.0f} min")
+    else:
+        m2.metric("Distance Delta", "0.0 km")
+        m3.metric("ETA Delta", "0 min")
 
 col_map, col_advisory = st.columns([2, 1])
 
@@ -69,4 +186,19 @@ with col_advisory:
     elif "error" in result:
         st.error(result["error"])
     else:
+        if result.get("simulated"):
+            # Persistent, in-panel — not just the sidebar radio state — so this can't be mistaken
+            # for a real WeatherNext-backed advisory if the panel is screenshotted or copied out
+            # of the app's own context.
+            st.error(
+                "🧪 SIMULATED DATA — this advisory was generated from a fabricated weather scenario, not live WeatherNext 3 data."
+            )
+        weather_res = result.get("weather_result")
+        detour_res = result.get("detour_result")
+        if weather_res and weather_res.unmonitored_waypoints:
+            st.warning(
+                f"⚠️ Weather data unavailable for: {', '.join(weather_res.unmonitored_waypoints)}"
+            )
+        if detour_res and detour_res.advisory_guidance:
+            st.warning(f"⚠️ **Staging Guidance:** {detour_res.advisory_guidance}")
         st.markdown(result["text"])

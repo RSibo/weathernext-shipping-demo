@@ -9,8 +9,9 @@ guessed past reasonable confidence):
    temperature and precipitation; wind isn't named anywhere in what's been shared.
 2. Precipitation units — assumed already in mm (total_precipitation_1hr_* is calibrated against
    IMERG, whose native units are mm/hr), NOT the meters-per-timestep convention common in
-   ECMWF/GRIB-derived data. If real data turns out to be in meters, multiply by 1000 in
-   _row_to_observation below — flagged there, not silently guessed.
+   ECMWF/GRIB-derived data. If real data turns out to be in meters, multiply by 1000 at the
+   `precip_mm_hr = row["total_precipitation_1hr_p90"]` line in run_weather_check below — flagged
+   there, not silently guessed.
 
 The per-waypoint init-eligibility CTE chain (6-hourly inits cover a 360h horizon; interim 1-hourly
 inits only cover 48h) is this module's own design addition on top of the documented example
@@ -60,9 +61,7 @@ waypoint_inits AS (
   -- ETA: 6-hourly inits (00/06/12/18 UTC) cover 360h; interim 1-hourly inits cover only 48h.
   -- A naive "just use MAX(init_time)" would silently return a stale/wrong match for any waypoint
   -- whose ETA is >48h out when the freshest init happens to be an interim one.
-  SELECT
-    w.name, w.lat, w.lon, w.eta, ci.init_time,
-    TIMESTAMP_DIFF(w.eta, ci.init_time, HOUR) AS lead_hours
+  SELECT w.name, w.lat, w.lon, w.eta, ci.init_time
   FROM waypoints w
   JOIN candidate_inits ci
     ON ci.init_time <= w.eta
@@ -73,7 +72,7 @@ waypoint_inits AS (
 ),
 best_init_per_waypoint AS (
   -- The freshest ELIGIBLE init per waypoint, not just the freshest init overall.
-  SELECT name, lat, lon, eta, init_time, lead_hours
+  SELECT name, lat, lon, eta, init_time
   FROM waypoint_inits
   QUALIFY ROW_NUMBER() OVER (PARTITION BY name ORDER BY init_time DESC) = 1
 )
@@ -91,7 +90,11 @@ JOIN `{project}.{dataset}.{table}` t1
   ON t1.init_time = b.init_time
  AND ST_INTERSECTS(t1.geography_polygon, ST_GEOGPOINT(b.lon, b.lat))
 CROSS JOIN UNNEST(t1.forecast) AS forecast
-QUALIFY ROW_NUMBER() OVER (PARTITION BY b.name ORDER BY ABS(forecast.hours - b.lead_hours) ASC) = 1
+-- No secondary tie-break needed: t1.init_time is already pinned to exactly one value per
+-- waypoint by the `t1.init_time = b.init_time` join above, so it can never disambiguate anything.
+QUALIFY ROW_NUMBER() OVER (
+  PARTITION BY b.name ORDER BY ABS(TIMESTAMP_DIFF(forecast.time, b.eta, MINUTE)) ASC
+) = 1
 """
 
 _bq_client: Optional[bigquery.Client] = None
@@ -104,7 +107,9 @@ def _get_client() -> bigquery.Client:
     return _bq_client
 
 
-def _build_hazard_polygon(geography_polygon_wkt: str, waypoint_name: str, reason_summary: str) -> HazardPolygon:
+def _build_hazard_polygon(
+    geography_polygon_wkt: str, waypoint_name: str, reason_summary: str
+) -> HazardPolygon:
     cell = shapely.wkt.loads(geography_polygon_wkt)
     buffered = cell.buffer(config.HAZARD_BUFFER_DEGREES)
     return HazardPolygon(
@@ -153,9 +158,16 @@ def run_weather_check(
     )
 
     rows = list(client.query(query, job_config=job_config).result())
+    if not rows and request.waypoints:
+        raise RuntimeError(
+            f"No WeatherNext forecast records found for shipment '{request.shipment_id}'. "
+            "Ensure waypoints are within the US coverage area and ETA falls within the 360-hour forecast horizon."
+        )
 
     observations: list[WeatherObservation] = []
+    found_names = set()
     for row in rows:
+        found_names.add(row["name"])
         temp_f = _kelvin_to_fahrenheit(row["temperature_2m_mean"])
         # ASSUMED already mm (see module docstring) — multiply by 1000 here if real data proves to
         # be meters-per-timestep instead.
@@ -167,6 +179,7 @@ def run_weather_check(
             wind_speed_mph=wind_speed_mph,
             precip_mm_hr=precip_mm_hr,
             temp_f=temp_f,
+            cargo_description=request.cargo_description,
         )
         hazard_polygon = None
         if breached:
@@ -189,4 +202,10 @@ def run_weather_check(
             )
         )
 
-    return RouteWeatherResult(shipment_id=request.shipment_id, observations=observations)
+    unmonitored = [wp.name for wp in request.waypoints if wp.name not in found_names]
+
+    return RouteWeatherResult(
+        shipment_id=request.shipment_id,
+        observations=observations,
+        unmonitored_waypoints=unmonitored if unmonitored else None,
+    )

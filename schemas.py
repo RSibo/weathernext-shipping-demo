@@ -22,13 +22,17 @@ class Coordinate(BaseModel):
 class Waypoint(BaseModel):
     name: str
     location: Coordinate
-    eta: datetime = Field(..., description="Estimated arrival time at this waypoint, timezone-aware UTC.")
+    eta: datetime = Field(
+        ..., description="Estimated arrival time at this waypoint, timezone-aware UTC."
+    )
 
     @field_validator("eta")
     @classmethod
     def _reject_naive_datetime(cls, v: datetime) -> datetime:
         if v.tzinfo is None:
-            raise ValueError("eta must be timezone-aware (naive datetimes risk querying the wrong forecast hour)")
+            raise ValueError(
+                "eta must be timezone-aware (naive datetimes risk querying the wrong forecast hour)"
+            )
         return v
 
 
@@ -48,6 +52,7 @@ class Shipment(BaseModel):
 class RouteWeatherRequest(BaseModel):
     shipment_id: str
     waypoints: list[Waypoint]
+    cargo_description: Optional[str] = None
 
 
 class HazardPolygon(BaseModel):
@@ -82,6 +87,10 @@ class RouteWeatherResult(BaseModel):
     shipment_id: str
     observations: list[WeatherObservation]
     any_breach: bool = False
+    unmonitored_waypoints: Optional[list[str]] = Field(
+        default=None,
+        description="Waypoints for which WeatherNext forecast data could not be retrieved.",
+    )
 
     @model_validator(mode="after")
     def _compute_any_breach(self) -> "RouteWeatherResult":
@@ -93,6 +102,10 @@ class DetourRequest(BaseModel):
     shipment_id: str
     origin: Coordinate
     destination: Coordinate
+    intermediates: list[Coordinate] = Field(
+        default_factory=list,
+        description="Intermediate waypoint locations along the route to preserve in candidate routes.",
+    )
     hazard_polygons: list[HazardPolygon]
 
 
@@ -127,13 +140,22 @@ class DetourResult(BaseModel):
     )
     distance_delta_meters: int
     eta_delta_seconds: int
+    advisory_guidance: Optional[str] = Field(
+        default=None,
+        description="Deterministic operational guidance when no clean detour exists (e.g. staging hold recommendation).",
+    )
 
     @model_validator(mode="after")
     def _deltas_match_chosen_minus_baseline(self) -> "DetourResult":
         expected_distance = self.chosen_route.distance_meters - self.baseline_route.distance_meters
         expected_eta = self.chosen_route.duration_seconds - self.baseline_route.duration_seconds
-        if self.distance_delta_meters != expected_distance or self.eta_delta_seconds != expected_eta:
-            raise ValueError("distance_delta_meters/eta_delta_seconds must equal chosen_route minus baseline_route")
+        if (
+            self.distance_delta_meters != expected_distance
+            or self.eta_delta_seconds != expected_eta
+        ):
+            raise ValueError(
+                "distance_delta_meters/eta_delta_seconds must equal chosen_route minus baseline_route"
+            )
         return self
 
     @model_validator(mode="after")
@@ -141,4 +163,12 @@ class DetourResult(BaseModel):
         expected = self.status == "no_clear_route_available"
         if self.still_hazardous != expected:
             raise ValueError("still_hazardous must match status == 'no_clear_route_available'")
+        return self
+
+    @model_validator(mode="after")
+    def _advisory_guidance_matches_hazardous_flag(self) -> "DetourResult":
+        if self.still_hazardous and not self.advisory_guidance:
+            raise ValueError("still_hazardous=True requires advisory_guidance to be set")
+        if not self.still_hazardous and self.advisory_guidance is not None:
+            raise ValueError("advisory_guidance must be None when still_hazardous=False")
         return self

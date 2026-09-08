@@ -9,7 +9,7 @@ fi
 
 PROJECT_ID="${GCP_PROJECT_ID:-weathernext3-route-agent}"
 WEATHERNEXT_DATASET="${WEATHERNEXT_DATASET:-weathernext3}"
-WEATHERNEXT_TABLE="${WEATHERNEXT_TABLE:-forecast}"
+WEATHERNEXT_TABLE="${WEATHERNEXT_TABLE:-weathernext_3_0_0_0p1deg}"
 
 pass=0
 fail=0

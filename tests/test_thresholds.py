@@ -17,19 +17,25 @@ def test_no_breach_when_all_below_thresholds():
 
 
 def test_wind_breach_at_or_above_threshold():
-    breached, reasons = evaluate_breach(wind_speed_mph=WIND_THRESHOLD_MPH, precip_mm_hr=0, temp_f=60)
+    breached, reasons = evaluate_breach(
+        wind_speed_mph=WIND_THRESHOLD_MPH, precip_mm_hr=0, temp_f=60
+    )
     assert breached is True
     assert len(reasons) == 1
     assert "Wind" in reasons[0]
 
 
 def test_wind_just_below_threshold_no_breach():
-    breached, _ = evaluate_breach(wind_speed_mph=WIND_THRESHOLD_MPH - 0.1, precip_mm_hr=0, temp_f=60)
+    breached, _ = evaluate_breach(
+        wind_speed_mph=WIND_THRESHOLD_MPH - 0.1, precip_mm_hr=0, temp_f=60
+    )
     assert breached is False
 
 
 def test_precip_breach_at_or_above_threshold():
-    breached, reasons = evaluate_breach(wind_speed_mph=0, precip_mm_hr=PRECIP_THRESHOLD_MM_HR, temp_f=60)
+    breached, reasons = evaluate_breach(
+        wind_speed_mph=0, precip_mm_hr=PRECIP_THRESHOLD_MM_HR, temp_f=60
+    )
     assert breached is True
     assert len(reasons) == 1
     assert "Precipitation" in reasons[0]
@@ -71,3 +77,21 @@ def test_multiple_simultaneous_breaches():
 def test_table_driven(wind, precip, temp, expected):
     breached, _ = evaluate_breach(wind, precip, temp)
     assert breached is expected
+
+
+def test_cargo_aware_wind_threshold_for_dry_van():
+    # 38 mph is below the default 45 mph threshold, but above the 35 mph dry van threshold
+    breached_van, reasons_van = evaluate_breach(
+        wind_speed_mph=38.0,
+        precip_mm_hr=0.0,
+        temp_f=70.0,
+        cargo_description="Palletized electronics, dry van",
+    )
+    assert breached_van is True
+    assert "dry-van rollover risk" in reasons_van[0]
+
+    breached_flatbed, reasons_flatbed = evaluate_breach(
+        wind_speed_mph=38.0, precip_mm_hr=0.0, temp_f=70.0, cargo_description="Bulk cement, flatbed"
+    )
+    assert breached_flatbed is False
+    assert len(reasons_flatbed) == 0
