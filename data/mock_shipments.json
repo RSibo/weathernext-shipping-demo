@@ -1,0 +1,46 @@
+[
+  {
+    "shipment_id": "SHP-1001",
+    "carrier": "Lone Star Freight",
+    "cargo_description": "Palletized electronics, dry van",
+    "origin": {"name": "Chicago, IL", "lat": 41.8781, "lon": -87.6298, "eta_offset_hours": 0},
+    "waypoints": [
+      {"name": "Davenport, IA", "lat": 41.5236, "lon": -90.5776, "eta_offset_hours": 3},
+      {"name": "Omaha, NE", "lat": 41.2565, "lon": -95.9345, "eta_offset_hours": 8}
+    ],
+    "destination": {"name": "Denver, CO", "lat": 39.7392, "lon": -104.9903, "eta_offset_hours": 14}
+  },
+  {
+    "shipment_id": "SHP-1002",
+    "carrier": "Atlantic Coast Logistics",
+    "cargo_description": "Refrigerated produce",
+    "origin": {"name": "Miami, FL", "lat": 25.7617, "lon": -80.1918, "eta_offset_hours": 0},
+    "waypoints": [
+      {"name": "Orlando, FL", "lat": 28.5383, "lon": -81.3792, "eta_offset_hours": 3},
+      {"name": "Jacksonville, FL", "lat": 30.3322, "lon": -81.6557, "eta_offset_hours": 5},
+      {"name": "Savannah, GA", "lat": 32.0809, "lon": -81.0912, "eta_offset_hours": 7}
+    ],
+    "destination": {"name": "Atlanta, GA", "lat": 33.7490, "lon": -84.3880, "eta_offset_hours": 11}
+  },
+  {
+    "shipment_id": "SHP-1003",
+    "carrier": "Desert Sun Transport",
+    "cargo_description": "Bulk cement, flatbed",
+    "origin": {"name": "Phoenix, AZ", "lat": 33.4484, "lon": -112.0740, "eta_offset_hours": 0},
+    "waypoints": [
+      {"name": "Blythe, CA", "lat": 33.6103, "lon": -114.5964, "eta_offset_hours": 2},
+      {"name": "Palm Springs, CA", "lat": 33.8303, "lon": -116.5453, "eta_offset_hours": 4}
+    ],
+    "destination": {"name": "Los Angeles, CA", "lat": 34.0522, "lon": -118.2437, "eta_offset_hours": 7}
+  },
+  {
+    "shipment_id": "SHP-1004",
+    "carrier": "Lone Star Freight",
+    "cargo_description": "Automotive parts, dry van",
+    "origin": {"name": "Houston, TX", "lat": 29.7604, "lon": -95.3698, "eta_offset_hours": 0},
+    "waypoints": [
+      {"name": "Dallas, TX", "lat": 32.7767, "lon": -96.8088, "eta_offset_hours": 4}
+    ],
+    "destination": {"name": "Oklahoma City, OK", "lat": 35.4676, "lon": -97.5164, "eta_offset_hours": 7}
+  }
+]

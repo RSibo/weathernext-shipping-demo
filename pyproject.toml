@@ -1,0 +1,78 @@
+[project]
+name = "weathernext-route-disruption-agent"
+version = "0.1.0"
+description = "Autonomous fleet safety and weather rerouting copilot (Gemini Flash + BigQuery GIS + WeatherNext 3)"
+readme = "README.md"
+requires-python = ">=3.11"
+
+dependencies = [
+    "pydantic>=2.13,<3",
+    # Function-calling loop is hand-rolled (not google-adk) so we depend on this directly.
+    # Needs types.FunctionDeclaration.from_callable_with_api_option, present at this version.
+    "google-genai>=2.16,<3",
+    "google-cloud-bigquery>=3.25,<4",
+    # Hazard polygon construction (weather) and route/hazard intersection filtering (routing).
+    # Ships manylinux wheels, no compiler needed for GEOS.
+    "shapely>=2.0,<3",
+    # Raw REST calls to routes.googleapis.com computeRoutes; avoids depending on an unverified
+    # google-maps-routing client library.
+    "httpx>=0.28,<0.29",
+    # Decodes Google's encoded polyline format; small, dependency-free, no reason to hand-roll it.
+    "polyline>=2.0,<3",
+    # mcp_server.py adapter. 2.0 renamed FastMCP -> MCPServer; a 3.x bump is a rewrite, not an
+    # upgrade, so major-pinned.
+    "mcp>=2.0,<3",
+    "streamlit>=1.38,<2",
+    "pydeck>=0.9,<1",
+    "python-dotenv>=1.0,<2",
+    "pytest>=8,<10",
+    "pytest-asyncio>=1.4,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest-cov>=6.0.0",
+    "ruff>=0.9.0",
+    # Mocks httpx calls in tests/test_routing_tool.py; purpose-built rather than hand-rolled
+    # monkeypatching. Floor raised past 0.21: that version's `method=` request matcher is broken
+    # against httpx>=0.28's request.method representation (verified directly - method-only routes
+    # never match, host-only routes do), fixed by 0.23.
+    "respx>=0.23,<0.24",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# Without this table `uv pip install -e .` fails: hatchling looks for a directory named
+# `weathernext_route_disruption_agent` and finds none. The code lives in flat top-level
+# packages/modules instead.
+[tool.hatch.build.targets.wheel]
+only-include = ["tools", "agent", "ui", "config.py", "schemas.py", "mcp_server.py"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "strict"
+
+[tool.coverage.run]
+branch = true
+source = ["tools", "agent"]
+
+[tool.coverage.report]
+# exclude_also, not exclude_lines: the latter replaces coverage's defaults and would silently
+# stop honouring `# pragma: no cover`.
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+fail_under = 80
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
