@@ -10,6 +10,7 @@ import streamlit as st
 from agent.loop import run_advisory_with_context
 from data import load_mock_shipments
 from schemas import HazardPolygon, RouteWeatherResult, Shipment, WeatherObservation
+from tools.thresholds import evaluate_breach
 from ui.map_layers import build_deck
 
 st.set_page_config(page_title="WeatherNext Route Disruption Copilot", layout="wide")
@@ -28,28 +29,37 @@ def _find_shipment(shipment_id: str) -> Shipment:
 
 
 def _generate_simulated_weather(shipment: Shipment, scenario: str) -> RouteWeatherResult:
+    """Fabricates plausible wind/precip/temp numbers for a demo scenario, but always runs them
+    through the real evaluate_breach() — never hand-writes breach/reason text. Otherwise this
+    simulation silently disagrees with production logic: it previously always said "exceeds
+    45mph threshold" even for a dry-van shipment, which should trip the 35mph threshold instead."""
     all_wp = shipment.all_waypoints()
     observations = []
     # Pick target breach waypoint (prefer first intermediate waypoint if present, else destination)
     target_idx = 1 if len(all_wp) > 2 else (len(all_wp) - 1)
 
     for idx, wp in enumerate(all_wp):
-        is_breach_target = (idx == target_idx) and ("Breach" in scenario)
-        if is_breach_target:
-            if "Black Ice" in scenario:
-                wind = 14.0
-                precip = 3.2
-                temp = 28.5
-                reasons = [f"Black ice risk: {temp:.1f}°F with {precip:.1f}mm/hr precipitation"]
-            else:
-                wind = 54.0
-                precip = 32.0
-                temp = 68.0
-                reasons = [
-                    f"Wind {wind:.1f}mph exceeds 45mph threshold",
-                    f"Precipitation {precip:.1f}mm/hr exceeds 25mm/hr threshold",
-                ]
+        # "(Breach)" (with the leading paren), not bare "Breach": the clear scenario's own label,
+        # "Clear Weather (Safe, No Breach)", contains the substring "Breach" too ("No Breach") —
+        # a bare substring check here would have silently injected a storm breach into the
+        # "clear" demo scenario.
+        is_breach_target = (idx == target_idx) and ("(Breach)" in scenario)
+        if is_breach_target and "Black Ice" in scenario:
+            wind, precip, temp = 14.0, 3.2, 28.5
+        elif is_breach_target:
+            wind, precip, temp = 54.0, 32.0, 68.0
+        else:
+            wind, precip, temp = 12.0, 0.0, 72.0
 
+        breached, reasons = evaluate_breach(
+            wind_speed_mph=wind,
+            precip_mm_hr=precip,
+            temp_f=temp,
+            cargo_description=shipment.cargo_description,
+        )
+
+        hazard = None
+        if breached:
             lat, lon = wp.location.lat, wp.location.lon
             box = shapely.geometry.box(lon - 0.15, lat - 0.15, lon + 0.15, lat + 0.15)
             hazard = HazardPolygon(
@@ -57,33 +67,20 @@ def _generate_simulated_weather(shipment: Shipment, scenario: str) -> RouteWeath
                 waypoint_name=wp.name,
                 reason_summary="; ".join(reasons),
             )
-            observations.append(
-                WeatherObservation(
-                    waypoint_name=wp.name,
-                    location=wp.location,
-                    valid_time=wp.eta,
-                    wind_speed_mph=wind,
-                    precip_mm_hr=precip,
-                    temp_f=temp,
-                    breached=True,
-                    reasons=reasons,
-                    hazard_polygon=hazard,
-                )
+
+        observations.append(
+            WeatherObservation(
+                waypoint_name=wp.name,
+                location=wp.location,
+                valid_time=wp.eta,
+                wind_speed_mph=wind,
+                precip_mm_hr=precip,
+                temp_f=temp,
+                breached=breached,
+                reasons=reasons,
+                hazard_polygon=hazard,
             )
-        else:
-            observations.append(
-                WeatherObservation(
-                    waypoint_name=wp.name,
-                    location=wp.location,
-                    valid_time=wp.eta,
-                    wind_speed_mph=12.0,
-                    precip_mm_hr=0.0,
-                    temp_f=72.0,
-                    breached=False,
-                    reasons=[],
-                    hazard_polygon=None,
-                )
-            )
+        )
 
     return RouteWeatherResult(shipment_id=shipment.shipment_id, observations=observations)
 

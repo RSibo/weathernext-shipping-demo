@@ -1,45 +1,40 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
+import pytest
 import shapely.geometry
 import shapely.wkt
 
 import config
 from schemas import Coordinate, RouteWeatherRequest, Waypoint
-from tools.weather import run_weather_check
+from tools.weather import _ms_to_mph, run_weather_check
 
 _HAZARD_CELL_WKT = "POLYGON((-97.0 32.7, -96.6 32.7, -96.6 33.1, -97.0 33.1, -97.0 32.7))"
+_NOW = datetime.now(timezone.utc)
 
 
 def _make_request() -> RouteWeatherRequest:
     return RouteWeatherRequest(
         shipment_id="ship-1",
         waypoints=[
-            Waypoint(
-                name="clear-stop",
-                location=Coordinate(lat=29.76, lon=-95.37),
-                eta=datetime.now(timezone.utc),
-            ),
-            Waypoint(
-                name="breach-stop",
-                location=Coordinate(lat=32.78, lon=-96.81),
-                eta=datetime.now(timezone.utc),
-            ),
+            Waypoint(name="clear-stop", location=Coordinate(lat=29.76, lon=-95.37), eta=_NOW),
+            Waypoint(name="breach-stop", location=Coordinate(lat=32.78, lon=-96.81), eta=_NOW),
         ],
     )
 
 
-def _row(name, lat, lon, *, temp_k, precip_mm, wind_mph, geography_polygon=_HAZARD_CELL_WKT):
+def _row(name, lat, lon, eta, *, temp_k, precip_mm, wind_ms, geography_polygon=_HAZARD_CELL_WKT):
     return {
         "name": name,
         "lat": lat,
         "lon": lon,
+        "waypoint_eta": eta,
         "valid_time": datetime.now(timezone.utc),
         "temperature_2m_mean": temp_k,
         "total_precipitation_1hr_p90": precip_mm,
-        f"{config.WEATHERNEXT_WIND_VARIABLE}_p90": wind_mph,
+        f"{config.WEATHERNEXT_WIND_VARIABLE}_p90": wind_ms,
         "geography_polygon": geography_polygon,
     }
 
@@ -53,17 +48,13 @@ def _mock_client(rows):
 
 
 def test_no_rows_breached_when_below_thresholds():
-    # 294.26K ~= 70F, well below every threshold.
-    rows = [_row("clear-stop", 29.76, -95.37, temp_k=294.26, precip_mm=0, wind_mph=10)]
+    # 294.26K ~= 70F, well below every threshold. 4.5 m/s ~= 10mph, well below every wind threshold.
+    rows = [_row("clear-stop", 29.76, -95.37, _NOW, temp_k=294.26, precip_mm=0, wind_ms=4.5)]
     client = _mock_client(rows)
     request = RouteWeatherRequest(
         shipment_id="ship-1",
         waypoints=[
-            Waypoint(
-                name="clear-stop",
-                location=Coordinate(lat=29.76, lon=-95.37),
-                eta=datetime.now(timezone.utc),
-            )
+            Waypoint(name="clear-stop", location=Coordinate(lat=29.76, lon=-95.37), eta=_NOW)
         ],
     )
 
@@ -74,17 +65,32 @@ def test_no_rows_breached_when_below_thresholds():
     assert result.observations[0].hazard_polygon is None
 
 
-def test_breach_row_gets_hazard_polygon_built_from_real_geography_polygon():
-    rows = [_row("breach-stop", 32.78, -96.81, temp_k=294.26, precip_mm=0, wind_mph=52.0)]
+def test_wind_speed_converted_from_ms_to_mph():
+    # 20 m/s is the canonical near-rollover crosswind example (~44.7mph) — verifies the
+    # conversion is actually applied, not just that a breach happens to occur.
+    rows = [_row("clear-stop", 29.76, -95.37, _NOW, temp_k=294.26, precip_mm=0, wind_ms=20.0)]
     client = _mock_client(rows)
     request = RouteWeatherRequest(
         shipment_id="ship-1",
         waypoints=[
-            Waypoint(
-                name="breach-stop",
-                location=Coordinate(lat=32.78, lon=-96.81),
-                eta=datetime.now(timezone.utc),
-            )
+            Waypoint(name="clear-stop", location=Coordinate(lat=29.76, lon=-95.37), eta=_NOW)
+        ],
+    )
+
+    result = run_weather_check(request, bq_client=client)
+
+    assert result.observations[0].wind_speed_mph == _ms_to_mph(20.0)
+    assert result.observations[0].wind_speed_mph == pytest.approx(44.7, abs=0.1)
+
+
+def test_breach_row_gets_hazard_polygon_built_from_real_geography_polygon():
+    # 25 m/s ~= 55.9mph, well above the 45mph threshold.
+    rows = [_row("breach-stop", 32.78, -96.81, _NOW, temp_k=294.26, precip_mm=0, wind_ms=25.0)]
+    client = _mock_client(rows)
+    request = RouteWeatherRequest(
+        shipment_id="ship-1",
+        waypoints=[
+            Waypoint(name="breach-stop", location=Coordinate(lat=32.78, lon=-96.81), eta=_NOW)
         ],
     )
 
@@ -106,16 +112,12 @@ def test_breach_row_gets_hazard_polygon_built_from_real_geography_polygon():
 
 def test_kelvin_to_fahrenheit_conversion():
     # 273.15K == 32F exactly.
-    rows = [_row("clear-stop", 29.76, -95.37, temp_k=273.15, precip_mm=0, wind_mph=5)]
+    rows = [_row("clear-stop", 29.76, -95.37, _NOW, temp_k=273.15, precip_mm=0, wind_ms=2.0)]
     client = _mock_client(rows)
     request = RouteWeatherRequest(
         shipment_id="ship-1",
         waypoints=[
-            Waypoint(
-                name="clear-stop",
-                location=Coordinate(lat=29.76, lon=-95.37),
-                eta=datetime.now(timezone.utc),
-            )
+            Waypoint(name="clear-stop", location=Coordinate(lat=29.76, lon=-95.37), eta=_NOW)
         ],
     )
 
@@ -125,7 +127,7 @@ def test_kelvin_to_fahrenheit_conversion():
 
 
 def test_query_uses_real_schema_shape_not_placeholder():
-    rows = [_row("clear-stop", 29.76, -95.37, temp_k=294.26, precip_mm=0, wind_mph=10)]
+    rows = [_row("clear-stop", 29.76, -95.37, _NOW, temp_k=294.26, precip_mm=0, wind_ms=4.5)]
     client = _mock_client(rows)
     request = _make_request()
 
@@ -160,7 +162,7 @@ def test_query_respects_init_horizon_eligibility_rule():
     interim 1-hourly inits => 48h horizon) — this is this module's own design addition beyond the
     documented example queries and has no live table to validate against yet, so at minimum the
     generated SQL must contain the guard."""
-    rows = [_row("clear-stop", 29.76, -95.37, temp_k=294.26, precip_mm=0, wind_mph=10)]
+    rows = [_row("clear-stop", 29.76, -95.37, _NOW, temp_k=294.26, precip_mm=0, wind_ms=4.5)]
     client = _mock_client(rows)
     request = _make_request()
 
@@ -172,9 +174,22 @@ def test_query_respects_init_horizon_eligibility_rule():
     assert "<= 48" in sql_text
 
 
-def test_run_weather_check_raises_on_empty_results():
-    import pytest
+def test_query_has_static_partition_bound_on_t1():
+    """A BigQuery cost/perf guard: the second reference to the partitioned table (t1) must carry
+    its own static init_time bound, not rely solely on an equi-join derived from a multi-level CTE
+    to be provably partition-prunable to the optimizer."""
+    rows = [_row("clear-stop", 29.76, -95.37, _NOW, temp_k=294.26, precip_mm=0, wind_ms=4.5)]
+    client = _mock_client(rows)
+    request = _make_request()
 
+    run_weather_check(request, bq_client=client)
+
+    sql_text = client.query.call_args[0][0]
+    assert "ON t1.init_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 16 DAY)" in sql_text
+    assert "AND t1.init_time = b.init_time" in sql_text
+
+
+def test_run_weather_check_raises_on_empty_results():
     client = _mock_client([])
     request = _make_request()
 
@@ -185,7 +200,7 @@ def test_run_weather_check_raises_on_empty_results():
 
 def test_run_weather_check_detects_unmonitored_waypoints():
     # Only return row for clear-stop; breach-stop has missing data
-    rows = [_row("clear-stop", 29.76, -95.37, temp_k=294.26, precip_mm=0, wind_mph=10)]
+    rows = [_row("clear-stop", 29.76, -95.37, _NOW, temp_k=294.26, precip_mm=0, wind_ms=4.5)]
     client = _mock_client(rows)
     request = _make_request()
 
@@ -195,8 +210,55 @@ def test_run_weather_check_detects_unmonitored_waypoints():
     assert len(result.observations) == 1
 
 
+def test_duplicate_waypoint_names_at_different_locations_both_get_observations():
+    """Two waypoints sharing a generic name ("Rest Stop") but at different coordinates must both
+    be tracked independently — partitioning/matching by bare name would silently collapse them."""
+    eta_a = _NOW
+
+    eta_b = _NOW + timedelta(hours=2)
+    rows = [
+        _row("Rest Stop", 29.76, -95.37, eta_a, temp_k=294.26, precip_mm=0, wind_ms=4.5),
+        _row("Rest Stop", 35.0, -100.0, eta_b, temp_k=294.26, precip_mm=0, wind_ms=4.5),
+    ]
+    client = _mock_client(rows)
+    request = RouteWeatherRequest(
+        shipment_id="ship-1",
+        waypoints=[
+            Waypoint(name="Rest Stop", location=Coordinate(lat=29.76, lon=-95.37), eta=eta_a),
+            Waypoint(name="Rest Stop", location=Coordinate(lat=35.0, lon=-100.0), eta=eta_b),
+        ],
+    )
+
+    result = run_weather_check(request, bq_client=client)
+
+    assert len(result.observations) == 2
+    assert result.unmonitored_waypoints is None
+
+
+def test_duplicate_waypoint_name_with_one_missing_is_correctly_flagged_unmonitored():
+    """The specific failure mode: two same-named waypoints, only one has data. The other must
+    still show up in unmonitored_waypoints — a bare-name match would have hidden this."""
+
+    eta_a = _NOW
+    eta_b = _NOW + timedelta(hours=2)
+    rows = [_row("Rest Stop", 29.76, -95.37, eta_a, temp_k=294.26, precip_mm=0, wind_ms=4.5)]
+    client = _mock_client(rows)
+    request = RouteWeatherRequest(
+        shipment_id="ship-1",
+        waypoints=[
+            Waypoint(name="Rest Stop", location=Coordinate(lat=29.76, lon=-95.37), eta=eta_a),
+            Waypoint(name="Rest Stop", location=Coordinate(lat=35.0, lon=-100.0), eta=eta_b),
+        ],
+    )
+
+    result = run_weather_check(request, bq_client=client)
+
+    assert len(result.observations) == 1
+    assert result.unmonitored_waypoints == ["Rest Stop"]
+
+
 def test_query_uses_minute_level_timestamp_matching():
-    rows = [_row("clear-stop", 29.76, -95.37, temp_k=294.26, precip_mm=0, wind_mph=10)]
+    rows = [_row("clear-stop", 29.76, -95.37, _NOW, temp_k=294.26, precip_mm=0, wind_ms=4.5)]
     client = _mock_client(rows)
     request = _make_request()
 
