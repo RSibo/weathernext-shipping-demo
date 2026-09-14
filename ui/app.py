@@ -4,8 +4,6 @@ no HTTP layer — appropriate for a single-user dispatcher demo.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 import shapely.geometry
 import streamlit as st
 
@@ -197,30 +195,6 @@ if result and "error" not in result:
         m2.metric("Distance Delta", "0.0 km")
         m3.metric("ETA Delta", "0 min")
         m4.metric("Est. Reroute Cost", "$0")
-
-    # forecast_issued_at is None in Simulation Mode (no real forecast to attribute), so this only
-    # renders for live WeatherNext 3 data. Reports the *actual observed* freshness rather than
-    # asserting WeatherNext 3's advertised hourly cadence as a guarantee: live testing found the
-    # freshest available init in this project's subscribed listing can lag several hours behind
-    # the advertised cadence (observed ~7h gap on 2026-09-14), likely Analytics-Hub-linked-dataset
-    # replication lag rather than a property of WeatherNext 3 itself, but not something this UI
-    # should paper over with an unverified "never more than an hour stale" claim.
-    if weather_res:
-        issued_times = [
-            obs.forecast_issued_at for obs in weather_res.observations if obs.forecast_issued_at
-        ]
-        if issued_times:
-            freshest = max(issued_times)
-            age_minutes = int((datetime.now(timezone.utc) - freshest).total_seconds() // 60)
-            age_str = f"{age_minutes // 60}h {age_minutes % 60}m" if age_minutes >= 60 else f"{age_minutes} min"
-            caption = f"Forecast issued {freshest.strftime('%Y-%m-%d %H:%M UTC')} ({age_str} ago)."
-            if age_minutes > 90:
-                st.caption(
-                    caption + " This is older than WeatherNext 3's advertised hourly cadence; "
-                    "this subscription's linked dataset may be lagging the source."
-                )
-            else:
-                st.caption(caption + " WeatherNext 3 refreshes forecasts hourly.")
 
 col_map, col_advisory = st.columns([2, 1])
 
