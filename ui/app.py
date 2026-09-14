@@ -162,21 +162,33 @@ if result and "error" not in result:
     if detour_res:
         delta_km = detour_res.distance_delta_meters / 1000
         delta_min = detour_res.eta_delta_seconds / 60
-        m2.metric("Distance Delta", f"{delta_km:+.1f} km")
-        m3.metric("ETA Delta", f"{delta_min:+.0f} min")
+        # still_hazardous means Routes API couldn't find any candidate that fully avoids the
+        # hazard (e.g. the hazard sits on a mandatory waypoint itself) — the numbers below then
+        # describe the *least-bad* candidate it fell back to, not a working detour. Labeling this
+        # distinctly matters: a dispatcher skimming only the metric row (not the advisory text or
+        # the staging-guidance warning below) should not read "+4.2 km" as "problem solved."
+        label_suffix = " (Still Hazardous)" if detour_res.still_hazardous else ""
+        m2.metric(f"Distance Delta{label_suffix}", f"{delta_km:+.1f} km")
+        m3.metric(f"ETA Delta{label_suffix}", f"{delta_min:+.0f} min")
         # Deliberately the cost of the DETOUR itself (extra miles), not a "cost avoided" figure —
         # the actual avoided cost (an accident, cargo damage, delay penalties) is real but
         # unquantifiable here. See config.DETOUR_COST_PER_MILE_USD.
         delta_miles = detour_res.distance_delta_meters / 1609.344
         detour_cost_usd = delta_miles * config.DETOUR_COST_PER_MILE_USD
         m4.metric(
-            "Est. Reroute Cost",
+            f"Est. Reroute Cost{label_suffix}",
             f"${detour_cost_usd:+,.0f}",
             help=(
                 f"Rough estimate only: extra distance x ${config.DETOUR_COST_PER_MILE_USD:.2f}/mile "
                 "blended operating cost. This is the cost of taking the detour, not a claim about "
                 "cost 'avoided' — the cost of NOT rerouting (an accident, cargo damage, delay "
                 "penalties) is real but not quantified here."
+                + (
+                    " No candidate route fully avoids the hazard — this is the least-bad option "
+                    "found, not a safe detour. See the staging guidance below."
+                    if detour_res.still_hazardous
+                    else ""
+                )
             ),
         )
     else:

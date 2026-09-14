@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Optional
 
 import pydeck
@@ -25,9 +26,16 @@ def _bounding_view(shipment: Shipment) -> pydeck.ViewState:
     center_lat = (min(lats) + max(lats)) / 2
     center_lon = (min(lons) + max(lons)) / 2
 
-    span = max(max(lats) - min(lats), max(lons) - min(lons), 0.5)
-    zoom = 8 - span  # rough heuristic: wider bounding box -> lower zoom
-    return pydeck.ViewState(latitude=center_lat, longitude=center_lon, zoom=max(zoom, 3), pitch=0)
+    # log2(360 / span) is the standard web-mercator "fit bounds" zoom (one world-width tile at
+    # zoom 0 covers 360deg of longitude); the old linear heuristic (`8 - span`) clamped to its
+    # zoom=3 floor for almost any real multi-state route (e.g. a ~1000km Miami-to-Atlanta lane),
+    # which rendered at near-continental scale — wide enough that the hazard polygon and waypoint
+    # markers below were visually imperceptible without the viewer manually zooming in first.
+    span = max(max(lats) - min(lats), max(lons) - min(lons), 0.05)
+    zoom = math.log2(360 / span) - 1  # -1 leaves margin so the route isn't flush against the edge
+    return pydeck.ViewState(
+        latitude=center_lat, longitude=center_lon, zoom=min(max(zoom, 3), 12), pitch=0
+    )
 
 
 def build_deck(
@@ -96,6 +104,11 @@ def build_deck(
                     stroked=True,
                     get_fill_color=_HAZARD_FILL_COLOR,
                     get_line_color=[234, 67, 53],
+                    get_line_width=200,
+                    # Real-world hazard cells (tens of km) shrink to sub-pixel outlines at a
+                    # zoomed-out multi-state route view; without a pixel floor the hazard the
+                    # whole dashboard exists to highlight can silently disappear.
+                    line_width_min_pixels=2,
                 )
             )
 
@@ -106,6 +119,10 @@ def build_deck(
             get_position="position",
             get_fill_color=f"breached ? {_WAYPOINT_BREACHED_COLOR} : {_WAYPOINT_CLEAR_COLOR}",
             get_radius=15000,
+            # Same reasoning as the hazard layer's line_width_min_pixels: a 15km real-world radius
+            # is a sub-pixel dot at a zoomed-out multi-state route view without this floor.
+            radius_min_pixels=5,
+            radius_max_pixels=20,
             pickable=True,
         )
     )
