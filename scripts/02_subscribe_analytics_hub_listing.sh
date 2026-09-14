@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Subscribes to the WeatherNext 3 Analytics Hub listing, creating a linked dataset in your GCP
-# project. NOT runnable until scripts/01_discover_weathernext_listing.md's publisher project /
-# exchange / listing IDs are filled in below (WeatherNext 3 access is allowlist-gated via Google's
-# Data Request form — see the README before assuming this is a quick step).
+# project. Defaults below point at Google's own public WeatherNext 3 listing, but this still
+# requires your GCP project to already have WeatherNext 3 access approved (allowlist-gated via
+# Google's Data Request form -- see the README before assuming this is a quick step).
 #
 # There is no `gcloud`/`bq` subcommand for Analytics Hub subscription (confirmed: no
 # `gcloud analytics-hub` or `gcloud alpha bigquery data-exchanges` command group exists as of this
-# writing) — this calls the REST API's `dataExchanges.listings.subscribe` method directly.
+# writing) -- this calls the REST API's `dataExchanges.listings.subscribe` method directly.
 set -euo pipefail
 
 # Required, no fallback: a same-named default here would let anyone who forgets to set this
