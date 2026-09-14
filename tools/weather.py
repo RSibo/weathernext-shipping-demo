@@ -137,7 +137,8 @@ SELECT
   forecast.temperature_2m_mean,
   forecast.imerg_tp_1hr_p90,
   forecast.{wind_var}_p90,
-  t1.geography_polygon
+  t1.geography_polygon,
+  b.init_time AS forecast_issued_at
 FROM best_init_per_waypoint b
 JOIN `{project}.{dataset}.{table}` t1
   -- This static bound is what actually controls scan size (see module docstring) — BigQuery's
@@ -329,6 +330,7 @@ def run_weather_check(
                 breached=breached,
                 reasons=reasons,
                 hazard_polygon=hazard_polygon,
+                forecast_issued_at=row["forecast_issued_at"],
             )
         )
 

@@ -29,7 +29,18 @@ def _make_request() -> RouteWeatherRequest:
     )
 
 
-def _row(name, lat, lon, eta, *, temp_k, precip_m, wind_ms, geography_polygon=_HAZARD_CELL_WKT):
+def _row(
+    name,
+    lat,
+    lon,
+    eta,
+    *,
+    temp_k,
+    precip_m,
+    wind_ms,
+    geography_polygon=_HAZARD_CELL_WKT,
+    forecast_issued_at=_NOW - timedelta(hours=1),
+):
     return {
         "name": name,
         "lat": lat,
@@ -40,6 +51,7 @@ def _row(name, lat, lon, eta, *, temp_k, precip_m, wind_ms, geography_polygon=_H
         "imerg_tp_1hr_p90": precip_m,
         f"{config.WEATHERNEXT_WIND_VARIABLE}_p90": wind_ms,
         "geography_polygon": geography_polygon,
+        "forecast_issued_at": forecast_issued_at,
     }
 
 
@@ -49,6 +61,36 @@ def _mock_client(rows):
     query_job.result.return_value = rows
     client.query.return_value = query_job
     return client
+
+
+def test_forecast_issued_at_flows_through_from_query_row():
+    # forecast_issued_at surfaces the forecast's init_time (when WeatherNext 3 generated it) so
+    # the UI can display forecast freshness -- distinct from valid_time (the forecasted moment).
+    issued = _NOW - timedelta(hours=1)
+    rows = [
+        _row(
+            "clear-stop",
+            29.76,
+            -95.37,
+            _NOW,
+            temp_k=294.26,
+            precip_m=0,
+            wind_ms=4.5,
+            forecast_issued_at=issued,
+        )
+    ]
+    client = _mock_client(rows)
+    request = RouteWeatherRequest(
+        shipment_id="ship-1",
+        waypoints=[
+            Waypoint(name="clear-stop", location=Coordinate(lat=29.76, lon=-95.37), eta=_NOW)
+        ],
+    )
+    result = run_weather_check(request, bq_client=client)
+    assert result.observations[0].forecast_issued_at == issued
+
+    sql_text = client.query.call_args[0][0]
+    assert "b.init_time AS forecast_issued_at" in sql_text
 
 
 def test_no_rows_breached_when_below_thresholds():

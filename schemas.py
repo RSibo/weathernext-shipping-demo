@@ -71,6 +71,15 @@ class WeatherObservation(BaseModel):
     breached: bool
     reasons: list[str] = Field(default_factory=list)
     hazard_polygon: Optional[HazardPolygon] = None
+    forecast_issued_at: Optional[datetime] = Field(
+        default=None,
+        description=(
+            "The WeatherNext 3 forecast init_time this observation came from (None in Simulation "
+            "Mode, which has no real forecast to attribute). Surfaced so the UI can show forecast "
+            "freshness -- WeatherNext 3's headline feature is hourly-refreshed forecasts, which "
+            "isn't visible from valid_time (the forecasted moment) alone."
+        ),
+    )
 
     @model_validator(mode="after")
     def _breach_fields_consistent(self) -> "WeatherObservation":

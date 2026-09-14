@@ -67,7 +67,7 @@ cap. Use "Simulation Mode" in the sidebar for cost-free demo runs.
 pytest --cov --cov-report=term-missing
 ```
 
-68 tests, ~83% coverage, no live credentials required. BigQuery and Routes API calls are mocked,
+69 tests, ~81% coverage, no live credentials required. BigQuery and Routes API calls are mocked,
 and the Gemini function-calling loop replays from committed, sanitized cassettes in
 `tests/cassettes/` (recorded via `python -m tests._record_cassettes`, which does need live
 credentials and makes real billed calls).

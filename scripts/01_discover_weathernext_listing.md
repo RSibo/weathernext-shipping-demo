@@ -26,6 +26,12 @@ opaque and verify empirically against your own subscription.
 - **Temperature:** `temperature_2m_{stat}`, **Kelvin**.
 - **Forecast cadence:** inits are hourly (interim inits between the 6-hourly full-horizon inits),
   each interim init covering a 48h horizon and each 6-hourly init covering the full 360h horizon.
+  **Observed caveat (2026-09-14):** the freshest `init_time` actually available in this project's
+  subscribed listing was ~7 hours old at query time (last init 21:00 UTC, checked at 04:08 UTC),
+  not within the last hour as the advertised cadence implies. Likely Analytics-Hub-linked-dataset
+  replication lag rather than a property of WeatherNext 3's own pipeline, but not verified either
+  way; `run_weather_check`'s results carry `forecast_issued_at` so callers can check actual
+  freshness themselves rather than assume it.
 
 ## Query guardrails
 
