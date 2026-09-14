@@ -15,10 +15,12 @@ DEST_PROJECT="${GCP_PROJECT_ID:?Set GCP_PROJECT_ID to your own GCP project (see 
 DEST_DATASET_ID="${WEATHERNEXT_DATASET:-weathernext_3}"
 LOCATION="${BQ_LOCATION:-US}"
 
-# Fill these in from scripts/01_discover_weathernext_listing.md before running.
-PUBLISHER_PROJECT="${PUBLISHER_PROJECT:?Set PUBLISHER_PROJECT (see scripts/01_discover_weathernext_listing.md)}"
-EXCHANGE_ID="${EXCHANGE_ID:?Set EXCHANGE_ID}"
-LISTING_ID="${LISTING_ID:?Set LISTING_ID}"
+# Google's own WeatherNext 3 Analytics Hub listing (US region) — confirmed live and stable, not
+# specific to this repo's original project (see scripts/01_discover_weathernext_listing.md).
+# Override these only if Google publishes a different regional listing you need instead (e.g. EU).
+PUBLISHER_PROJECT="${PUBLISHER_PROJECT:-866962084172}"
+EXCHANGE_ID="${EXCHANGE_ID:-weathernext_19397e1bcb7}"
+LISTING_ID="${LISTING_ID:-weathernext_3_1a067c1e929}"
 
 echo "About to subscribe to:"
 echo "  projects/${PUBLISHER_PROJECT}/locations/${LOCATION}/dataExchanges/${EXCHANGE_ID}/listings/${LISTING_ID}"

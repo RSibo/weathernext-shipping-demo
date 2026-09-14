@@ -1,8 +1,9 @@
 """Centralized environment-variable configuration.
 
-Note: GOOGLE_GENAI_USE_VERTEXAI / VERTEX_LOCATION here configure the *target app's* Gemini client
-(agent/loop.py), independent of this Claude Code session's own ANTHROPIC_VERTEX_PROJECT_ID /
-CLOUD_ML_REGION in .claude/settings.json — the two are unrelated clients hitting the same project.
+Note: GOOGLE_GENAI_USE_VERTEXAI / VERTEX_LOCATION configure the Gemini client this app itself
+uses (agent/loop.py) to call Vertex AI — make sure the identity running this (a user via
+`gcloud auth application-default login`, or a service account) has the Vertex AI User role on
+PROJECT_ID.
 """
 
 from __future__ import annotations

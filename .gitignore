@@ -1,3 +1,7 @@
+# Local Claude Code settings (has previously held a real, project-specific
+# ANTHROPIC_VERTEX_PROJECT_ID) — never something a cloned/adapted copy of this repo should ship.
+.claude/
+
 __pycache__/
 *.py[cod]
 *.egg-info/
