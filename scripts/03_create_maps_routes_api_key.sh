@@ -4,7 +4,9 @@
 # surface.
 set -euo pipefail
 
-PROJECT_ID="${GCP_PROJECT_ID:-weathernext3-route-agent}"
+# Required, no fallback: a same-named default here would let anyone who forgets to set this
+# silently target the original project instead of their own.
+PROJECT_ID="${GCP_PROJECT_ID:?Set GCP_PROJECT_ID to your own GCP project (see .env.example)}"
 DISPLAY_NAME="${DISPLAY_NAME:-weathernext-route-agent-routes-key}"
 
 echo "About to create an API key on ${PROJECT_ID} restricted to routes.googleapis.com."

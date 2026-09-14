@@ -1,29 +1,50 @@
 """check_route_weather: BigQuery GIS spatial-temporal join against WeatherNext 3.
 
-Query structure below matches Google's official WeatherNext 3 BigQuery documentation (real table
-names, real column-naming convention, real example queries) — NOT the original blueprint's guessed
-flat-table schema. Two things remain genuinely unverified pending actual dataset access (not
-guessed past reasonable confidence):
+Query structure matches Google's official WeatherNext 3 BigQuery documentation (real table names,
+real column-naming convention, real example queries), verified live against the subscribed dataset
+`weathernext3-route-agent.weathernext_3` on 2026-09-14:
 
-1. The wind variable name (config.WEATHERNEXT_WIND_VARIABLE) — the docs' example queries only show
-   temperature and precipitation; wind isn't named anywhere in what's been shared.
-2. Precipitation units — assumed already in mm (total_precipitation_1hr_* is calibrated against
-   IMERG, whose native units are mm/hr), NOT the meters-per-timestep convention common in
-   ECMWF/GRIB-derived data. If real data turns out to be in meters, multiply by 1000 at the
-   `precip_mm_hr = row["total_precipitation_1hr_p90"]` line in run_weather_check below — flagged
-   there, not silently guessed.
-3. Wind speed units — ASSUMED m/s (the near-universal convention for gridded NWP/ML weather
-   output: ECMWF/IFS, GraphCast, ERA5, WeatherBench2, NOAA GFS all publish wind natively in m/s;
-   unlike precipitation, there's no counter-signal favoring mph here), and converted to mph via
-   `_ms_to_mph` below. If real data turns out to already be in mph, remove that conversion at the
-   `wind_speed_mph = _ms_to_mph(...)` line in run_weather_check — flagged there, not silently
-   guessed either way.
+1. Wind: `wind_speed_10m_{stat}` exists as a direct field (no u/v component decomposition needed)
+   and is in m/s — confirmed from real sample values (~7-8, physically reasonable as m/s, absurdly
+   calm as mph) — converted via `_ms_to_mph` below.
+2. Precipitation: CONTRARY to the original assumption, `total_precipitation_1hr_*` and
+   `imerg_tp_1hr_*` are both in METERS, not already mm — confirmed from real sample values
+   (~3e-5 to 6e-5, consistent with meters; as already-mm this would make the storm threshold,
+   25mm/hr, effectively unreachable). Converted via `_meters_to_mm` below. Uses `imerg_tp_1hr`, not
+   `total_precipitation_1hr`: both fields are the same order of magnitude (ruling out one being a
+   pre-calibrated mm/hr version of the other), and Google's own docs state precipitation is
+   "calibrated against satellite observations (IMERG)" — `imerg_tp_1hr` is the calibrated field,
+   `total_precipitation_1hr` the raw uncalibrated model output.
+3. Temperature: `temperature_2m_mean` confirmed in Kelvin (real sample values ~293.6-293.9K, a
+   physically reasonable ~68-69°F).
+
+CORRECTED FINDING (2026-09-14): an earlier version of this docstring claimed the query's ~8.19TB
+real cost was "a property of the dataset's physical layout, not a flaw in this query." That was
+wrong, and a second-opinion review caught it. The actual cause: the query used a static
+`init_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 16 DAY)` bound, conflating *forecast
+horizon* (how far into the future one init reaches, up to 360h) with *init lookback* (how far into
+the past we need to search to find a fresh init — inits occur at minimum every 6h, so this only
+ever needed to be ~24h, not 16 days). `t1`'s join also carries `t1.init_time = b.init_time` (an
+exact value derived through a multi-level CTE), which I'd assumed made the wider static bound
+redundant/harmless. Empirically it is not: BigQuery's pruning appears to key off the directly
+visible static bound, not the joined equality, so the literal interval width directly controls
+scan size regardless of the join's own selectivity. Verified live, same production query, interval
+only changed: `16 DAY` = 7.45TB, `24 HOUR` = 363GB (95% less), `12 HOUR` = 61GB (99% less). Now
+templated via `config.WEATHERNEXT_INIT_LOOKBACK_HOURS` (default 24) instead of hardcoded twice.
+Real cost is dominated by this window's width, not waypoint count (a 5-waypoint query cost the
+same as a 2-waypoint one at the same window). `WEATHERNEXT_MAX_BYTES_BILLED` remains a genuine
+safety cap against a misconfigured/runaway query, and results are cached
+(`WEATHERNEXT_CACHE_TTL_SECONDS`) so repeated checks of the same shipment within an hour (the
+forecast update cadence) don't re-pay even the now-much-smaller real cost.
 
 The per-waypoint init-eligibility CTE chain (6-hourly inits cover a 360h horizon; interim 1-hourly
 inits only cover 48h) is this module's own design addition on top of the documented example
-queries (which are single-location, single-init lookups) and has never run against a real table.
-First action once access arrives: a manual live query to validate it before trusting it in the
-agent loop — see scripts/01_discover_weathernext_listing.md.
+queries (which are single-location, single-init lookups). Real inits are confirmed hourly.
+
+CAUGHT ONLY BY LIVE TESTING: BigQuery rejects `PARTITION BY` on `FLOAT64` columns outright
+("Partitioning by expressions of type FLOAT64 is not allowed") — both `QUALIFY` clauses below cast
+`lat`/`lon` to STRING for exactly this reason. No mocked test can catch a real SQL engine
+restriction like this.
 
 Degree-based shapely buffering for the hazard polygon's safety margin is not metrically uniform (a
 fixed-degree buffer is ~constant in latitude but shrinks in longitude distance as latitude
@@ -43,6 +64,8 @@ than bolted on ad hoc.
 
 from __future__ import annotations
 
+import time
+from datetime import timedelta
 from typing import Optional
 
 import shapely.geometry
@@ -64,12 +87,13 @@ WITH waypoints AS (
   SELECT * FROM UNNEST(@waypoints)  -- name STRING, lat FLOAT64, lon FLOAT64, eta TIMESTAMP
 ),
 candidate_inits AS (
-  -- Distinct init times within a lookback window generous enough to cover the max 360h horizon.
-  -- Filtering on init_time here (and again below) is what lets this prune the init_time partition
-  -- instead of scanning the whole table.
+  -- Lookback window sized to reliably catch at least one fresh init (inits occur at minimum every
+  -- 6h), NOT to cover the forecast horizon (a single init already reaches up to 360h on its own —
+  -- irrelevant to how far back we need to search). Filtering on init_time here (and again below)
+  -- is what lets this prune the init_time partition instead of scanning the whole table.
   SELECT DISTINCT init_time
   FROM `{project}.{dataset}.{table}`
-  WHERE init_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 16 DAY)
+  WHERE init_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {lookback_hours} HOUR)
 ),
 waypoint_inits AS (
   -- Keep only (waypoint, init) pairs where this init's horizon actually reaches the waypoint's
@@ -93,7 +117,16 @@ best_init_per_waypoint AS (
   -- collapse two distinct waypoints that happen to share a label into a single result.
   SELECT name, lat, lon, eta, init_time
   FROM waypoint_inits
-  QUALIFY ROW_NUMBER() OVER (PARTITION BY name, lat, lon, eta ORDER BY init_time DESC) = 1
+  -- CAST(... AS STRING): BigQuery rejects PARTITION BY on FLOAT64 columns outright ("Partitioning
+  -- by expressions of type FLOAT64 is not allowed") — confirmed live, not caught by any mocked
+  -- test since it's a real BigQuery engine restriction, not something a mock can validate.
+  -- ROUND(..., 5) first: harmless today (lat/lon flow from one canonical parameter value per
+  -- query, never independently recomputed), but removes any future risk of two textually-different
+  -- float representations of "the same" coordinate splitting into separate partitions.
+  QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY name, CAST(ROUND(lat, 5) AS STRING), CAST(ROUND(lon, 5) AS STRING), eta
+    ORDER BY init_time DESC
+  ) = 1
 )
 SELECT
   b.name,
@@ -102,26 +135,52 @@ SELECT
   b.eta AS waypoint_eta,
   forecast.time AS valid_time,
   forecast.temperature_2m_mean,
-  forecast.total_precipitation_1hr_p90,
+  forecast.imerg_tp_1hr_p90,
   forecast.{wind_var}_p90,
   t1.geography_polygon
 FROM best_init_per_waypoint b
 JOIN `{project}.{dataset}.{table}` t1
-  -- Static bound repeated here (not just on candidate_inits above): an equi-join derived from a
-  -- multi-level CTE isn't guaranteed to prove partition-prunability to BigQuery's optimizer on
-  -- its own, especially alongside a spatial join and an UNNEST. Costs nothing, removes the doubt.
-  ON t1.init_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 16 DAY)
+  -- This static bound is what actually controls scan size (see module docstring) — BigQuery's
+  -- pruning keys off this directly-visible literal, not the `t1.init_time = b.init_time` equality
+  -- below, even though that equality is exact. Keep this in sync with candidate_inits' bound
+  -- above (both templated from the same config value, not independently hardcoded).
+  ON t1.init_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {lookback_hours} HOUR)
  AND t1.init_time = b.init_time
  AND ST_INTERSECTS(t1.geography_polygon, ST_GEOGPOINT(b.lon, b.lat))
 CROSS JOIN UNNEST(t1.forecast) AS forecast
 -- No secondary tie-break needed: t1.init_time is already pinned to exactly one value per
 -- waypoint by the `t1.init_time = b.init_time` join above, so it can never disambiguate anything.
 QUALIFY ROW_NUMBER() OVER (
-  PARTITION BY b.name, b.lat, b.lon, b.eta ORDER BY ABS(TIMESTAMP_DIFF(forecast.time, b.eta, MINUTE)) ASC
+  PARTITION BY b.name, CAST(ROUND(b.lat, 5) AS STRING), CAST(ROUND(b.lon, 5) AS STRING), b.eta
+  ORDER BY ABS(TIMESTAMP_DIFF(forecast.time, b.eta, MINUTE)) ASC
 ) = 1
 """
 
 _bq_client: Optional[bigquery.Client] = None
+
+# (shipment_id, (waypoint keys...), cargo_description) -> (cached_at_unix_time, RouteWeatherResult)
+#
+# Process-local only, by design: this is a single-process demo (Streamlit, or one MCP server
+# instance), not a multi-instance production deployment. A scaled-out deployment (multiple Cloud
+# Run instances, multiple Gunicorn/Uvicorn workers) would need a shared store instead — e.g.
+# Memorystore, Firestore, or a database-backed cache — since each process would otherwise keep an
+# independent, inconsistent cache. This module-level dict does NOT solve that; swap it out
+# entirely rather than trying to extend it if you deploy this at that scale.
+_weather_cache: dict[tuple, tuple[float, RouteWeatherResult]] = {}
+
+# Bounds memory growth in a long-running process (the MCP server, or a Streamlit instance left
+# open for days) — a bare TTL alone doesn't evict anything until the entry is looked up again, so
+# a process that keeps getting *new* distinct requests without ever repeating one would otherwise
+# grow the dict forever. Hand-rolled FIFO eviction (not `cachetools.TTLCache`) to avoid adding a
+# dependency for what a few lines already cover correctly for this repo's scale.
+_WEATHER_CACHE_MAX_SIZE = 128
+
+# Cache-key granularity for `eta`, not query precision — the query itself still uses the exact
+# `eta` for its nearest-forecast-step match. Rounding only the cache key to the forecast's native
+# hourly granularity means two requests for "the same" waypoint/time a few minutes apart (e.g. a
+# fresh Shipment built by a different caller, rather than the same cached object the UI reuses
+# within one session) still hit the cache instead of guaranteed-missing on sub-second differences.
+_CACHE_ETA_ROUNDING_MINUTES = 15
 
 
 def _get_client() -> bigquery.Client:
@@ -129,6 +188,30 @@ def _get_client() -> bigquery.Client:
     if _bq_client is None:
         _bq_client = bigquery.Client(project=config.PROJECT_ID)
     return _bq_client
+
+
+def _round_eta_for_cache(eta):
+    minutes = _CACHE_ETA_ROUNDING_MINUTES
+    discard = timedelta(
+        minutes=eta.minute % minutes, seconds=eta.second, microseconds=eta.microsecond
+    )
+    rounded = eta - discard
+    if discard >= timedelta(minutes=minutes / 2):
+        rounded += timedelta(minutes=minutes)
+    return rounded
+
+
+def _cache_key(request: RouteWeatherRequest) -> tuple:
+    waypoint_keys = tuple(
+        (wp.name, wp.location.lat, wp.location.lon, _round_eta_for_cache(wp.eta))
+        for wp in request.waypoints
+    )
+    return (request.shipment_id, waypoint_keys, request.cargo_description)
+
+
+def _clear_weather_cache() -> None:
+    """Test hook — production code never needs to call this."""
+    _weather_cache.clear()
 
 
 def _build_hazard_polygon(
@@ -151,6 +234,10 @@ def _ms_to_mph(meters_per_second: float) -> float:
     return meters_per_second * 2.23694
 
 
+def _meters_to_mm(meters: float) -> float:
+    return meters * 1000
+
+
 def run_weather_check(
     request: RouteWeatherRequest, *, bq_client: Optional[bigquery.Client] = None
 ) -> RouteWeatherResult:
@@ -158,8 +245,17 @@ def run_weather_check(
 
     Runs one parameterized BigQuery GIS query for all waypoints in the request, then computes
     threshold breaches and hazard polygons in Python via tools.thresholds — never in SQL and never
-    left to the caller (Gemini) to infer from raw numbers.
+    left to the caller (Gemini) to infer from raw numbers. Results are cached for
+    config.WEATHERNEXT_CACHE_TTL_SECONDS (default 1h, matching the forecast update cadence) since
+    each real query costs real money (see module docstring) — a cache hit costs nothing.
     """
+    cache_key = _cache_key(request)
+    cached = _weather_cache.get(cache_key)
+    if cached is not None:
+        cached_at, cached_result = cached
+        if time.time() - cached_at < config.WEATHERNEXT_CACHE_TTL_SECONDS:
+            return cached_result
+
     client = bq_client if bq_client is not None else _get_client()
 
     waypoint_structs = [
@@ -178,11 +274,13 @@ def run_weather_check(
         dataset=config.WEATHERNEXT_DATASET,
         table=config.WEATHERNEXT_TABLE,
         wind_var=config.WEATHERNEXT_WIND_VARIABLE,
+        lookback_hours=config.WEATHERNEXT_INIT_LOOKBACK_HOURS,
     )
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
             bigquery.ArrayQueryParameter("waypoints", "STRUCT", waypoint_structs),
-        ]
+        ],
+        maximum_bytes_billed=config.WEATHERNEXT_MAX_BYTES_BILLED,
     )
 
     rows = list(client.query(query, job_config=job_config).result())
@@ -201,12 +299,10 @@ def run_weather_check(
     for row in rows:
         found_keys.add((row["name"], row["lat"], row["lon"], row["waypoint_eta"]))
         temp_f = _kelvin_to_fahrenheit(row["temperature_2m_mean"])
-        # ASSUMED already mm (see module docstring) — multiply by 1000 here if real data proves to
-        # be meters-per-timestep instead.
-        precip_mm_hr = row["total_precipitation_1hr_p90"]
+        # max(0.0, ...): percentile/regression-fit satellite-calibrated data can occasionally emit
+        # tiny negative artifacts near zero (e.g. -1e-7) — precipitation can never be negative.
+        precip_mm_hr = max(0.0, _meters_to_mm(row["imerg_tp_1hr_p90"]))
         wind_speed_key = f"{config.WEATHERNEXT_WIND_VARIABLE}_p90"
-        # ASSUMED m/s (see module docstring) — remove this conversion if real data proves to
-        # already be in mph.
         wind_speed_mph = _ms_to_mph(row[wind_speed_key])
 
         breached, reasons = evaluate_breach(
@@ -242,8 +338,15 @@ def run_weather_check(
         if (wp.name, wp.location.lat, wp.location.lon, wp.eta) not in found_keys
     ]
 
-    return RouteWeatherResult(
+    result = RouteWeatherResult(
         shipment_id=request.shipment_id,
         observations=observations,
         unmonitored_waypoints=unmonitored if unmonitored else None,
     )
+    if cache_key not in _weather_cache and len(_weather_cache) >= _WEATHER_CACHE_MAX_SIZE:
+        # FIFO, not LRU: plain dicts preserve insertion order (Python 3.7+), so the first key is
+        # the oldest. Simple and sufficient for this repo's scale — see _WEATHER_CACHE_MAX_SIZE.
+        oldest_key = next(iter(_weather_cache))
+        del _weather_cache[oldest_key]
+    _weather_cache[cache_key] = (time.time(), result)
+    return result

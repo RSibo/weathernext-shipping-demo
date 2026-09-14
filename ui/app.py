@@ -7,6 +7,7 @@ from __future__ import annotations
 import shapely.geometry
 import streamlit as st
 
+import config
 from agent.loop import run_advisory_with_context
 from data import load_mock_shipments
 from schemas import HazardPolygon, RouteWeatherResult, Shipment, WeatherObservation
@@ -147,7 +148,7 @@ if run_clicked:
 result = st.session_state.get(state_key)
 
 if result and "error" not in result:
-    m1, m2, m3 = st.columns(3)
+    m1, m2, m3, m4 = st.columns(4)
     weather_res = result.get("weather_result")
     detour_res = result.get("detour_result")
 
@@ -163,9 +164,25 @@ if result and "error" not in result:
         delta_min = detour_res.eta_delta_seconds / 60
         m2.metric("Distance Delta", f"{delta_km:+.1f} km")
         m3.metric("ETA Delta", f"{delta_min:+.0f} min")
+        # Deliberately the cost of the DETOUR itself (extra miles), not a "cost avoided" figure —
+        # the actual avoided cost (an accident, cargo damage, delay penalties) is real but
+        # unquantifiable here. See config.DETOUR_COST_PER_MILE_USD.
+        delta_miles = detour_res.distance_delta_meters / 1609.344
+        detour_cost_usd = delta_miles * config.DETOUR_COST_PER_MILE_USD
+        m4.metric(
+            "Est. Reroute Cost",
+            f"${detour_cost_usd:+,.0f}",
+            help=(
+                f"Rough estimate only: extra distance x ${config.DETOUR_COST_PER_MILE_USD:.2f}/mile "
+                "blended operating cost. This is the cost of taking the detour, not a claim about "
+                "cost 'avoided' — the cost of NOT rerouting (an accident, cargo damage, delay "
+                "penalties) is real but not quantified here."
+            ),
+        )
     else:
         m2.metric("Distance Delta", "0.0 km")
         m3.metric("ETA Delta", "0 min")
+        m4.metric("Est. Reroute Cost", "$0")
 
 col_map, col_advisory = st.columns([2, 1])
 

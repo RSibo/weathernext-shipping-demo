@@ -7,8 +7,14 @@ if [[ -f .env ]]; then
   set -a; source .env; set +a
 fi
 
-PROJECT_ID="${GCP_PROJECT_ID:-weathernext3-route-agent}"
-WEATHERNEXT_DATASET="${WEATHERNEXT_DATASET:-weathernext3}"
+# No same-named-project fallback here on purpose (see config.py's PROJECT_ID comment) — report a
+# clean failure instead of silently checking someone else's project.
+if [[ -z "${GCP_PROJECT_ID:-}" ]]; then
+  echo "FAIL - GCP_PROJECT_ID is not set. Copy .env.example to .env and set it to your own GCP project."
+  exit 1
+fi
+PROJECT_ID="${GCP_PROJECT_ID}"
+WEATHERNEXT_DATASET="${WEATHERNEXT_DATASET:-weathernext_3}"
 WEATHERNEXT_TABLE="${WEATHERNEXT_TABLE:-weathernext_3_0_0_0p1deg}"
 
 pass=0
