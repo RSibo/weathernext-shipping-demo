@@ -15,3 +15,14 @@ venv/
 dist/
 build/
 .coverage
+data/replay/
+data/routes_cache/
+data/golden/
+
+# Frontend
+node_modules/
+frontend/screenshots/
+*.tsbuildinfo
+
+# Eval run outputs (scripts/run_evals.py)
+evals/artifacts/

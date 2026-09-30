@@ -17,12 +17,19 @@ tier — the field mask below is kept minimal.
 
 from __future__ import annotations
 
+import hashlib
+import json
+import re
+import threading
+from pathlib import Path
+from typing import Literal, Optional, Sequence
+
 import httpx
 from shapely.geometry import shape
 from shapely.ops import unary_union
 
 import config
-from schemas import CandidateRoute, DetourRequest, DetourResult
+from schemas import CandidateRoute, Coordinate, DetourRequest, DetourResult, RouteLeg, RoutePlan
 from tools.polyline_codec import to_linestring
 
 _COMPUTE_ROUTES_URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
@@ -41,7 +48,9 @@ def _call_compute_routes(origin, destination, intermediates=None, *, api_key: st
             "location": {"latLng": {"latitude": destination.lat, "longitude": destination.lon}}
         },
         "travelMode": "DRIVE",
-        "computeAlternativeRoutes": True,
+        # Routes API: "No alternative routes are returned for requests that have intermediate
+        # waypoints" — asking anyway just returns the one route, so only ask when it can help.
+        "computeAlternativeRoutes": not intermediates,
         "routingPreference": "TRAFFIC_AWARE",
     }
     if intermediates:
@@ -148,3 +157,168 @@ def compute_detour(request: DetourRequest, *, api_key: str | None = None) -> Det
         eta_delta_seconds=chosen.duration_seconds - baseline.duration_seconds,
         advisory_guidance=advisory_guidance,
     )
+
+
+# --- Showcase routing: compute_routes + RouteCache -------------------------------------------
+
+_PLAN_FIELD_MASK = ",".join([
+    "routes.duration",
+    "routes.distanceMeters",
+    "routes.polyline.encodedPolyline",
+    "routes.description",
+    "routes.routeLabels",
+    "routes.legs.distanceMeters",
+    "routes.legs.duration",
+])
+
+CacheMode = Literal["live", "replay"]
+
+
+class RouteCache:
+    """Routes API responses keyed by a hash of the request body.
+
+    live: call the API on a miss and store the response. replay: never call the API; a miss is a
+    RoutingError. Replay mode is what makes recorded demos deterministic and free, and it is why
+    requests are TRAFFIC_UNAWARE with no departureTime (a past departureTime is invalid for DRIVE,
+    and traffic makes the same request return different routes minute to minute).
+    """
+
+    def __init__(self, directory: Optional[Path] = None, mode: CacheMode = "live"):
+        self.directory = Path(directory) if directory else None
+        self.mode = mode
+        self._mem: dict[str, list[dict]] = {}
+        self._lock = threading.Lock()
+        self.live_calls = 0
+        self.cached_calls = 0
+        if self.directory:
+            self.directory.mkdir(parents=True, exist_ok=True)
+
+    def scoped(self) -> "RouteCache":
+        """Same store, fresh counters: one per agent run so concurrent runs report their own calls."""
+        child = RouteCache.__new__(RouteCache)
+        child.directory, child.mode, child._mem, child._lock = self.directory, self.mode, self._mem, self._lock
+        child.live_calls = child.cached_calls = 0
+        return child
+
+    def count(self, *, live: bool) -> None:
+        with self._lock:
+            if live:
+                self.live_calls += 1
+            else:
+                self.cached_calls += 1
+
+    @staticmethod
+    def key(body: dict) -> str:
+        return hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()[:24]
+
+    def get(self, body: dict) -> Optional[list[dict]]:
+        k = self.key(body)
+        with self._lock:
+            if k in self._mem:
+                return self._mem[k]
+        if self.directory and (self.directory / f"{k}.json").exists():
+            routes = json.loads((self.directory / f"{k}.json").read_text())["routes"]
+            with self._lock:
+                self._mem[k] = routes
+            return routes
+        return None
+
+    def put(self, body: dict, routes: list[dict]) -> None:
+        k = self.key(body)
+        with self._lock:
+            self._mem[k] = routes
+        if self.directory:
+            (self.directory / f"{k}.json").write_text(json.dumps({"request": body, "routes": routes}))
+
+
+def _latlng(c: Coordinate) -> dict:
+    return {"location": {"latLng": {"latitude": round(c.lat, 5), "longitude": round(c.lon, 5)}}}
+
+
+def slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-") or "route"
+
+
+def compute_routes(
+    origin: Coordinate,
+    destination: Coordinate,
+    *,
+    stops: Sequence[Coordinate] = (),
+    via: Optional[Coordinate] = None,
+    via_label: Optional[str] = None,
+    via_index: Optional[int] = None,
+    alternatives: bool = False,
+    cache: Optional[RouteCache] = None,
+    api_key: Optional[str] = None,
+) -> list[RoutePlan]:
+    """One computeRoutes call -> RoutePlans. The first plan of a no-via call is the default route.
+
+    `via` is a pass-through (via: true) intermediate: it steers the route along a highway without
+    adding a leg, so leg ETAs for real stops stay valid.
+    """
+    if via is not None and alternatives:
+        raise ValueError("alternatives are not returned when intermediates are present")
+    intermediates = [_latlng(s) for s in stops]
+    if via is not None:
+        pos = len(intermediates) if via_index is None else max(0, min(via_index, len(intermediates)))
+        intermediates.insert(pos, {**_latlng(via), "via": True})
+    body: dict = {
+        "origin": _latlng(origin),
+        "destination": _latlng(destination),
+        "travelMode": "DRIVE",
+        "routingPreference": "TRAFFIC_UNAWARE",
+        "computeAlternativeRoutes": bool(alternatives and not intermediates),
+        "units": "IMPERIAL",
+    }
+    if intermediates:
+        body["intermediates"] = intermediates
+
+    raw = cache.get(body) if cache else None
+    if raw is not None:
+        cache.count(live=False)
+    else:
+        if cache and cache.mode == "replay":
+            raise RoutingError("route not in the recorded cache (replay mode)")
+        key = api_key if api_key is not None else config.GOOGLE_MAPS_ROUTES_API_KEY
+        if not key:
+            raise RoutingError("GOOGLE_MAPS_ROUTES_API_KEY is not set")
+        headers = {"Content-Type": "application/json", "X-Goog-Api-Key": key, "X-Goog-FieldMask": _PLAN_FIELD_MASK}
+        try:
+            response = httpx.post(_COMPUTE_ROUTES_URL, json=body, headers=headers, timeout=15.0)
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise RoutingError(f"Routes API call failed: {exc}") from exc
+        raw = response.json().get("routes", [])
+        if cache:
+            cache.count(live=True)
+            cache.put(body, raw)
+
+    plans = []
+    for i, r in enumerate(raw):
+        description = r.get("description") or "Route"
+        if via is not None:
+            source, route_id = "via_anchor", f"via:{slug(via_label or description)}"
+        elif i == 0:
+            source, route_id = "default", "baseline"
+        else:
+            source, route_id = "alternative", f"alt:{slug(description)}"
+        plans.append(
+            RoutePlan(
+                route_id=route_id,
+                description=description,
+                labels=r.get("routeLabels", []),
+                source=source,
+                via_label=via_label,
+                distance_meters=int(r.get("distanceMeters", 0)),
+                duration_seconds=int(str(r.get("duration", "0s")).rstrip("s")),
+                polyline=r["polyline"]["encodedPolyline"],
+                legs=[
+                    RouteLeg(
+                        distance_meters=int(leg.get("distanceMeters", 0)),
+                        duration_seconds=int(str(leg.get("duration", "0s")).rstrip("s")),
+                    )
+                    for leg in r.get("legs", [])
+                ],
+            )
+        )
+    return plans

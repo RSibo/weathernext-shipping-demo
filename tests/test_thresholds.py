@@ -54,6 +54,23 @@ def test_black_ice_requires_nonzero_precip():
     assert breached is False
 
 
+def test_black_ice_ignores_trace_precip():
+    # WeatherNext p90 precip carries ~0.03 mm/hr trace values nearly everywhere; below the
+    # measurable floor they must not flag every sub-freezing cell.
+    breached, _ = evaluate_breach(wind_speed_mph=0, precip_mm_hr=0.05, temp_f=BLACK_ICE_TEMP_F - 10)
+    assert breached is False
+
+
+def test_near_threshold_dry_van_vs_flatbed():
+    from tools.thresholds import near_threshold
+
+    assert near_threshold(31.0, 0.0, 70.0, "Empty 53' dry van")  # 31 >= 0.85 * 35
+    assert near_threshold(31.0, 0.0, 70.0, "Steel coils, flatbed") == []  # 31 < 0.85 * 45
+    assert near_threshold(40.0, 0.0, 70.0, "Steel coils, flatbed")
+    assert near_threshold(36.0, 0.0, 70.0, "Empty 53' dry van") == []  # a breach, not "near"
+    assert near_threshold(0.0, 22.0, 70.0, None)
+
+
 def test_black_ice_not_triggered_above_freezing():
     breached, _ = evaluate_breach(wind_speed_mph=0, precip_mm_hr=5, temp_f=BLACK_ICE_TEMP_F + 1)
     assert breached is False
@@ -71,7 +88,8 @@ def test_multiple_simultaneous_breaches():
         (0, 0, 100, False),
         (100, 0, 100, True),
         (0, 100, 100, True),
-        (0, 0.01, 32, True),
+        (0, 0.01, 32, False),  # trace precip is below the measurable floor
+        (0, 0.1, 32, True),
     ],
 )
 def test_table_driven(wind, precip, temp, expected):

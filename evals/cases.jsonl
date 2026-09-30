@@ -1,0 +1,5 @@
+{"id": "hero-reroute", "shipment_id": "SHP-2001", "expect_status": "REROUTE", "expect_option": "detour:i-70-e", "covers": "breach, clean detour; every later departure misses the deadline"}
+{"id": "same-storm-flatbed", "shipment_id": "SHP-2002", "expect_status": "MONITOR", "expect_option": "baseline", "covers": "same storm, loaded trailer: within 15% of the 45 mph limit"}
+{"id": "no-detour-hold", "shipment_id": "SHP-2003", "expect_status": "HOLD", "expect_option": "delay:+12h", "covers": "breach, no candidate avoids it; a later departure is clean and on time"}
+{"id": "clear-flatbed", "shipment_id": "SHP-2004", "expect_status": "CLEAR", "expect_option": "baseline", "covers": "calm lane, loaded trailer"}
+{"id": "clear-with-stop", "shipment_id": "SHP-2005", "expect_status": "CLEAR", "expect_option": "baseline", "covers": "calm lane with an intermediate stop (via-anchor path)"}

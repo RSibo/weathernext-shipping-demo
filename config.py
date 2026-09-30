@@ -1,7 +1,7 @@
 """Centralized environment-variable configuration.
 
 Note: GOOGLE_GENAI_USE_VERTEXAI / VERTEX_LOCATION configure the Gemini client this app itself
-uses (agent/loop.py) to call Vertex AI — make sure the identity running this (a user via
+uses (agent/runner.py) to call Vertex AI — make sure the identity running this (a user via
 `gcloud auth application-default login`, or a service account) has the Vertex AI User role on
 PROJECT_ID.
 """
@@ -9,6 +9,7 @@ PROJECT_ID.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -81,6 +82,34 @@ MAX_ALTERNATIVE_ROUTES = 3
 # not invent a number for it. Replace with your own fleet's real blended operating cost per mile.
 DETOUR_COST_PER_MILE_USD = float(os.getenv("DETOUR_COST_PER_MILE_USD", "2.00"))
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+# Used only if the primary model returns 404/5xx at run time (model ID churn, regional outage).
+GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash")
+# Gemini 3 thinking level for the dispatch agent: low | medium | high.
+GEMINI_THINKING_LEVEL = os.getenv("GEMINI_THINKING_LEVEL", "low")
 VERTEX_LOCATION = os.getenv("VERTEX_LOCATION", "global")
 GOOGLE_GENAI_USE_VERTEXAI = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "1") == "1"
+
+# --- Showcase web app (api/) -------------------------------------------------------------------
+# Browser key for the Maps JavaScript API. Unlike the Routes key this one is public by design
+# (it ships to the browser), so it MUST be restricted to the app's referrers and to the Maps
+# JavaScript API only in the Cloud console. It is the only key /api/config ever returns.
+MAPS_JS_API_KEY = os.getenv("MAPS_JS_API_KEY", "")
+# Styled vector Map ID (Cloud console > Map Management). Empty -> Google's DEMO_MAP_ID, dark scheme.
+MAP_ID = os.getenv("MAP_ID", "")
+
+# Replay cube, recorded Routes responses and golden runs. Kept out of git (WeatherNext / Maps data
+# terms) but uploaded with the source by scripts/deploy.sh, so they ship inside the private image.
+# Recorded routes must be refreshed at least every 30 days (scripts/record_run.py --cache live).
+# Defaults are anchored on the repo root, so the server finds them whatever directory it starts in.
+_DATA = Path(__file__).resolve().parent / "data"
+REPLAY_CUBE_PATH = os.getenv("REPLAY_CUBE_PATH", str(_DATA / "replay" / "wn3_20260312T06Z.npz"))
+ROUTES_CACHE_DIR = os.getenv("ROUTES_CACHE_DIR", str(_DATA / "routes_cache"))
+GOLDEN_DIR = os.getenv("GOLDEN_DIR", str(_DATA / "golden"))
+# live: call the Routes API on a cache miss (needs GOOGLE_MAPS_ROUTES_API_KEY). replay: never.
+ROUTES_CACHE_MODE = os.getenv("ROUTES_CACHE_MODE", "live" if GOOGLE_MAPS_ROUTES_API_KEY else "replay")
+
+# Public-URL guards: concurrent live Gemini runs per instance, and live runs per day per
+# instance, before the API serves the recorded golden run instead.
+MAX_CONCURRENT_RUNS = int(os.getenv("MAX_CONCURRENT_RUNS", "4"))
+DAILY_LIVE_RUN_CAP = int(os.getenv("DAILY_LIVE_RUN_CAP", "300"))

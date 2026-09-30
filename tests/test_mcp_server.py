@@ -71,7 +71,7 @@ async def test_mcp_check_route_weather_tool_calls_real_implementation_and_forwar
     assert mocked.called
     # This is the specific regression the private-attribute bug hid: cargo_description must
     # reach run_weather_check so the MCP path applies the same cargo-aware wind threshold the
-    # in-process agent loop does (see agent/loop.py's _check_route_weather).
+    # in-process agent does (agent/runner.py passes the Shipment's cargo to tools/assess.py).
     forwarded_request = mocked.call_args[0][0]
     assert forwarded_request.cargo_description == "dry van"
     assert result.shipment_id == "mcp-test"

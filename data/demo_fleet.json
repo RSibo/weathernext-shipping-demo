@@ -1,0 +1,113 @@
+{
+  "_comment": "Showcase fleet. Offsets are hours relative to the story's 'now' (replay: forecast init + replay_now_offset_hours = 16Z, 10:00 MDT). One storm, five trucks, four decisions.",
+  "replay_now_offset_hours": 10,
+  "shipments": [
+    {
+      "shipment_id": "SHP-2001",
+      "carrier": "Wasatch Freight Lines",
+      "cargo_description": "Empty 53' dry van (backhaul)",
+      "timezone": "America/Denver",
+      "origin": {
+        "name": "Salt Lake City, UT",
+        "lat": 40.7608,
+        "lon": -111.891,
+        "eta_offset_hours": 0
+      },
+      "waypoints": [],
+      "destination": {
+        "name": "Denver, CO",
+        "lat": 39.7392,
+        "lon": -104.9903,
+        "eta_offset_hours": 8
+      },
+      "deadline_offset_hours": 9
+    },
+    {
+      "shipment_id": "SHP-2002",
+      "carrier": "Wasatch Freight Lines",
+      "cargo_description": "Steel coils, flatbed",
+      "timezone": "America/Denver",
+      "origin": {
+        "name": "Salt Lake City, UT",
+        "lat": 40.7608,
+        "lon": -111.891,
+        "eta_offset_hours": 0
+      },
+      "waypoints": [],
+      "destination": {
+        "name": "Denver, CO",
+        "lat": 39.7392,
+        "lon": -104.9903,
+        "eta_offset_hours": 8
+      },
+      "deadline_offset_hours": 11
+    },
+    {
+      "shipment_id": "SHP-2003",
+      "carrier": "High Plains Carriers",
+      "cargo_description": "Empty 53' dry van (repositioning)",
+      "timezone": "America/Denver",
+      "origin": {
+        "name": "Rock Springs, WY",
+        "lat": 41.5875,
+        "lon": -109.2029,
+        "eta_offset_hours": 0
+      },
+      "waypoints": [],
+      "destination": {
+        "name": "Cheyenne, WY",
+        "lat": 41.14,
+        "lon": -104.8202,
+        "eta_offset_hours": 4
+      },
+      "deadline_offset_hours": 20
+    },
+    {
+      "shipment_id": "SHP-2004",
+      "carrier": "Desert Sun Transport",
+      "cargo_description": "Bulk cement, flatbed",
+      "timezone": "America/Phoenix",
+      "origin": {
+        "name": "Phoenix, AZ",
+        "lat": 33.4484,
+        "lon": -112.074,
+        "eta_offset_hours": 0
+      },
+      "waypoints": [],
+      "destination": {
+        "name": "Los Angeles, CA",
+        "lat": 34.0522,
+        "lon": -118.2437,
+        "eta_offset_hours": 6
+      },
+      "deadline_offset_hours": 9
+    },
+    {
+      "shipment_id": "SHP-2005",
+      "carrier": "Lone Star Freight",
+      "cargo_description": "Automotive parts, dry van",
+      "timezone": "America/Chicago",
+      "origin": {
+        "name": "Houston, TX",
+        "lat": 29.7604,
+        "lon": -95.3698,
+        "eta_offset_hours": 0
+      },
+      "waypoints": [
+        {
+          "name": "Dallas, TX",
+          "lat": 32.7767,
+          "lon": -96.8088,
+          "eta_offset_hours": 4
+        }
+      ],
+      "destination": {
+        "name": "Oklahoma City, OK",
+        "lat": 35.4676,
+        "lon": -97.5164,
+        "eta_offset_hours": 7
+      },
+      "deadline_offset_hours": 10
+    }
+  ]
+}

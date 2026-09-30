@@ -43,6 +43,12 @@ class Shipment(BaseModel):
     waypoints: list[Waypoint] = Field(default_factory=list, description="Intermediate stops only.")
     carrier: Optional[str] = None
     cargo_description: Optional[str] = None
+    delivery_deadline: Optional[datetime] = Field(
+        default=None, description="Latest acceptable arrival, timezone-aware UTC."
+    )
+    timezone: str = Field(
+        default="UTC", description="IANA zone used for every human-facing time on this lane."
+    )
 
     def all_waypoints(self) -> list[Waypoint]:
         """Origin, intermediate waypoints, and destination, in route order."""
@@ -181,3 +187,128 @@ class DetourResult(BaseModel):
         if not self.still_hazardous and self.advisory_guidance is not None:
             raise ValueError("advisory_guidance must be None when still_hazardous=False")
         return self
+
+
+# --- Showcase pipeline models (tools/assess.py, tools/detour.py, tools/delay.py) ---------------
+# Everything below is computed in Python. Gemini and the UI only ever see these values rendered
+# through tools/facts.py display strings.
+
+Verdict = Literal["clean", "at_risk", "hazardous", "unmonitored"]
+
+
+class RouteLeg(BaseModel):
+    distance_meters: int
+    duration_seconds: int
+
+
+class RoutePlan(BaseModel):
+    route_id: str = Field(..., description="Stable id, e.g. 'baseline', 'alt:us-40-e', 'via:grand-junction'.")
+    description: str = Field(..., description="Routes API routes.description, e.g. 'I-80 E'.")
+    labels: list[str] = Field(default_factory=list)
+    source: Literal["default", "alternative", "via_anchor"]
+    via_label: Optional[str] = None
+    distance_meters: int
+    duration_seconds: int
+    polyline: str
+    legs: list[RouteLeg] = Field(default_factory=list)
+
+
+class RouteSample(BaseModel):
+    km: float
+    lat: float
+    lon: float
+    eta: datetime
+    wind_mph: Optional[float] = None
+    precip_mm_hr: Optional[float] = None
+    temp_f: Optional[float] = None
+    status: Literal["clear", "near", "breach", "unmonitored"]
+    reasons: list[str] = Field(default_factory=list)
+
+
+class BreachSegment(BaseModel):
+    kind: Literal["breach", "near"]
+    start_km: float
+    end_km: float
+    start_eta: datetime
+    end_eta: datetime
+    hazards: list[Literal["wind", "precip", "black_ice"]]
+    peak_wind_mph: float
+    peak_precip_mm_hr: float
+    min_temp_f: float
+    peak_lat: float
+    peak_lon: float
+    near_place: str = Field(..., description="Named place nearest the peak sample.")
+    from_place: str = ""
+    to_place: str = ""
+    reasons: list[str]
+
+
+class RouteAssessment(BaseModel):
+    route_id: str
+    verdict: Verdict
+    depart_at: datetime
+    arrive_at: datetime
+    wind_threshold_mph: float
+    sample_spacing_km: float
+    samples: list[RouteSample]
+    segments: list[BreachSegment] = Field(default_factory=list, description="Breach segments only.")
+    near_segments: list[BreachSegment] = Field(default_factory=list)
+    peak_wind_mph: Optional[float] = None
+    peak_wind_km: Optional[float] = None
+    unmonitored_fraction: float
+    exposure_km: float = Field(..., description="Route length inside breach segments.")
+    exposure_score: float = Field(..., description="Sum of km x (value / threshold) over breach samples; ranking only.")
+    hazard_zones: Optional[dict] = Field(
+        default=None, description="GeoJSON (Multi)Polygon of breached forecast cells; display only."
+    )
+
+    @property
+    def first_breach(self) -> Optional[BreachSegment]:
+        return self.segments[0] if self.segments else None
+
+
+class DetourOption(BaseModel):
+    option_id: str
+    plan: RoutePlan
+    assessment: RouteAssessment
+    delta_distance_meters: int
+    delta_duration_seconds: int
+
+
+class DetourAnalysis(BaseModel):
+    shipment_id: str
+    baseline_id: str
+    candidates: list[DetourOption]
+    chosen_id: Optional[str] = None
+    still_hazardous: bool
+    anchors_tried: list[str] = Field(default_factory=list)
+    routes_calls: int = 0
+
+    @model_validator(mode="after")
+    def _chosen_is_a_candidate(self) -> "DetourAnalysis":
+        if self.chosen_id is not None and self.chosen_id not in {c.option_id for c in self.candidates}:
+            raise ValueError("chosen_id must name one of the candidates")
+        return self
+
+    @property
+    def chosen(self) -> Optional[DetourOption]:
+        return next((c for c in self.candidates if c.option_id == self.chosen_id), None)
+
+
+class DelayOption(BaseModel):
+    option_id: str
+    shift_hours: int
+    depart_at: datetime
+    arrive_at: datetime
+    verdict: Literal["clean", "at_risk", "hazardous", "beyond_forecast"]
+    peak_wind_mph: Optional[float] = None
+    meets_deadline: Optional[bool] = None
+
+
+class DelayAnalysis(BaseModel):
+    shipment_id: str
+    deadline: Optional[datetime] = None
+    options: list[DelayOption]
+    earliest_safe_id: Optional[str] = Field(
+        default=None, description="First option below every threshold (clean or at_risk); None = no safe departure in the forecast."
+    )

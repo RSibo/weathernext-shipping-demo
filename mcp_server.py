@@ -1,12 +1,12 @@
 """mcp-route-disruption-server: exposes check_route_weather and compute_detour_route over MCP.
 
-This is a protocol adapter, not a second implementation — both tools call directly into
-tools.weather.run_weather_check / tools.routing.compute_detour, the same functions
-agent/loop.py's hand-rolled function-calling loop dispatches to. If the MCP path and the in-process
-agent path could disagree about a weather breach or a detour, this server would be a demo prop
-rather than a code path worth trusting.
+This is a protocol adapter over tools.weather.run_weather_check (a live BigQuery check at the
+caller's waypoints) and tools.routing.compute_detour. The in-process agent (agent/runner.py)
+samples a forecast cube along the whole route instead (tools/assess.py), but both paths judge a
+sample with the same tools.thresholds rules, so a waypoint that breaches for one breaches for the
+other.
 
-Unlike agent/loop.py's tools (which deliberately take only shipment_id, resolving coordinates from
+Unlike the agent's tools (which deliberately take only shipment_id, resolving coordinates from
 internal Shipment state), this server has no notion of "the current shipment" — an external MCP
 client supplies waypoints/coordinates directly, since it isn't operating inside this repo's
 Shipment-scoped session.
@@ -60,13 +60,12 @@ def build_server() -> MCPServer:
         waypoints — ordered list of {name, location: {lat, lon}, eta} along the route.
         cargo_description — freeform cargo/trailer description (e.g. "dry van", "empty"); used to
         select the cargo-aware wind threshold (35mph vs 45mph). Must be supplied by the caller —
-        this server has no Shipment record of its own to read it from, unlike agent/loop.py's
+        this server has no Shipment record of its own to read it from, unlike the agent's
         in-process tool, which resolves it automatically from the shipment being reviewed."""
         request = RouteWeatherRequest(
             shipment_id=shipment_id, waypoints=waypoints, cargo_description=cargo_description
         )
-        # BigQuery client calls are blocking; off the event loop, same reason k8s_docs_server.py
-        # wraps its BM25 search in anyio.to_thread.run_sync.
+        # BigQuery client calls are blocking, so they run in a worker thread, off the event loop.
         return await anyio.to_thread.run_sync(lambda: run_weather_check(request))
 
     @server.tool(

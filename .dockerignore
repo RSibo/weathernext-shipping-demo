@@ -1,0 +1,32 @@
+# Build-context exclusions for the root Dockerfile (local `docker build .`). Mirrors .gcloudignore,
+# which governs what `gcloud run deploy --source .` uploads; keep the two in step.
+#
+# Never in the context: .env. The node_modules entry is also correctness, not size: `COPY
+# frontend/ ./` after `npm ci` would overwrite the Linux install with host-platform binaries.
+
+.env
+.env.*
+.claude/
+.git/
+
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.log
+
+# Rebuilt inside the image by the Node stage. A host node_modules would also carry host-platform
+# native binaries (esbuild, rollup) into the Linux build.
+frontend/node_modules/
+frontend/dist/
+frontend/screenshots/
+*.tsbuildinfo
+
+# Not inputs to the image.
+tests/
+scripts/
+docs/
+evals/

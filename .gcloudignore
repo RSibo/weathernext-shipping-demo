@@ -1,0 +1,35 @@
+# What `gcloud run deploy --source .` uploads to Cloud Build (scripts/deploy.sh).
+#
+# Written out rather than `#!include:.gitignore`: without this file gcloud derives one from
+# .gitignore, which would drop data/replay, data/routes_cache and data/golden. Those are kept out of
+# git for data-terms reasons but are inputs to the image.
+#
+# Never uploaded: .env (the Routes key reaches the service through Secret Manager instead).
+
+.env
+.env.*
+.claude/
+.git/
+.gitignore
+
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.log
+
+# Rebuilt inside the image by the Node stage. A host node_modules would also carry host-platform
+# native binaries (esbuild, rollup) into the Linux build.
+frontend/node_modules/
+frontend/dist/
+frontend/screenshots/
+*.tsbuildinfo
+
+# Not inputs to the image.
+tests/
+scripts/
+docs/
+evals/

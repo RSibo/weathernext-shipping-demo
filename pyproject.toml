@@ -22,15 +22,17 @@ dependencies = [
     # mcp_server.py adapter. 2.0 renamed FastMCP -> MCPServer; a 3.x bump is a rewrite, not an
     # upgrade, so major-pinned.
     "mcp>=2.0,<3",
-    "streamlit>=1.38,<2",
-    "pydeck>=0.9,<1",
     "python-dotenv>=1.0,<2",
-    "pytest>=8,<10",
-    "pytest-asyncio>=1.4,<2",
+    "fastapi>=0.142.2",
+    "uvicorn>=0.52,<1",
+    "numpy>=2.4.6",
+    "tzdata>=2026.4",
 ]
 
 [project.optional-dependencies]
 dev = [
+    "pytest>=8,<10",
+    "pytest-asyncio>=1.4,<2",
     "pytest-cov>=6.0.0",
     "ruff>=0.9.0",
     # Mocks httpx calls in tests/test_routing_tool.py; purpose-built rather than hand-rolled
@@ -48,7 +50,7 @@ build-backend = "hatchling.build"
 # `weathernext_route_disruption_agent` and finds none. The code lives in flat top-level
 # packages/modules instead.
 [tool.hatch.build.targets.wheel]
-only-include = ["tools", "agent", "ui", "config.py", "schemas.py", "mcp_server.py"]
+only-include = ["api", "tools", "agent", "data", "config.py", "schemas.py", "mcp_server.py"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
@@ -57,7 +59,7 @@ asyncio_mode = "strict"
 
 [tool.coverage.run]
 branch = true
-source = ["tools", "agent", "ui.map_layers", "ui.app", "mcp_server"]
+source = ["api", "tools", "agent", "mcp_server"]
 
 [tool.coverage.report]
 # exclude_also, not exclude_lines: the latter replaces coverage's defaults and would silently

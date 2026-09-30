@@ -81,6 +81,7 @@ from schemas import (
     WeatherObservation,
 )
 from tools.thresholds import evaluate_breach
+from tools.units import kelvin_to_fahrenheit, meters_to_mm, ms_to_mph
 
 _QUERY_TEMPLATE = """
 WITH waypoints AS (
@@ -227,16 +228,9 @@ def _build_hazard_polygon(
     )
 
 
-def _kelvin_to_fahrenheit(kelvin: float) -> float:
-    return (kelvin - 273.15) * 9 / 5 + 32
-
-
-def _ms_to_mph(meters_per_second: float) -> float:
-    return meters_per_second * 2.23694
-
-
-def _meters_to_mm(meters: float) -> float:
-    return meters * 1000
+_kelvin_to_fahrenheit = kelvin_to_fahrenheit
+_ms_to_mph = ms_to_mph
+_meters_to_mm = meters_to_mm
 
 
 def run_weather_check(

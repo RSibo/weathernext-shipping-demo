@@ -248,3 +248,97 @@ def test_compute_detour_passes_intermediates_to_routes_api():
     assert sent_body["intermediates"] == [
         {"location": {"latLng": {"latitude": 5.0, "longitude": 5.0}}}
     ]
+    # Routes API returns no alternatives when intermediates are present, so don't ask for them.
+    assert sent_body["computeAlternativeRoutes"] is False
+
+
+@respx.mock
+def test_compute_detour_without_stops_requests_alternatives():
+    import json
+
+    route_mock = respx.post("https://routes.googleapis.com/directions/v2:computeRoutes").mock(
+        return_value=Response(200, json=_routes_response([[(0.0, 0.0), (10.0, 10.0)]]))
+    )
+    request = DetourRequest(
+        shipment_id="ship-1", origin=Coordinate(lat=0.0, lon=0.0), destination=Coordinate(lat=10.0, lon=10.0),
+        hazard_polygons=[],
+    )
+    compute_detour(request, api_key="fake-key")
+    assert json.loads(route_mock.calls.last.request.content)["computeAlternativeRoutes"] is True
+
+
+def _plan_response(descriptions):
+    return {
+        "routes": [
+            {
+                "description": d,
+                "routeLabels": ["DEFAULT_ROUTE" if i == 0 else "DEFAULT_ROUTE_ALTERNATE"],
+                "distanceMeters": 838_000 + i * 6_600,
+                "duration": f"{28_500 + i * 840}s",
+                "polyline": {"encodedPolyline": polyline_lib.encode([(40.7, -111.9), (41.0 - i, -108.0), (39.7, -105.0)])},
+                "legs": [{"distanceMeters": 838_000 + i * 6_600, "duration": f"{28_500 + i * 840}s"}],
+            }
+            for i, d in enumerate(descriptions)
+        ]
+    }
+
+
+@respx.mock
+def test_compute_routes_ids_field_mask_and_traffic_unaware_body():
+    import json
+
+    from tools.routing import compute_routes
+
+    mock = respx.post("https://routes.googleapis.com/directions/v2:computeRoutes").mock(
+        return_value=Response(200, json=_plan_response(["I-80 E", "I-70 E"]))
+    )
+    plans = compute_routes(Coordinate(lat=40.76, lon=-111.89), Coordinate(lat=39.74, lon=-104.99), alternatives=True, api_key="k")
+    assert [p.route_id for p in plans] == ["baseline", "alt:i-70-e"]
+    assert [p.source for p in plans] == ["default", "alternative"]
+    assert plans[1].duration_seconds - plans[0].duration_seconds == 840
+    req = mock.calls.last.request
+    body = json.loads(req.content)
+    assert body["routingPreference"] == "TRAFFIC_UNAWARE" and "departureTime" not in body
+    assert body["computeAlternativeRoutes"] is True
+    for field in ("routes.description", "routes.legs.duration", "routes.polyline.encodedPolyline"):
+        assert field in req.headers["X-Goog-FieldMask"]
+
+
+@respx.mock
+def test_compute_routes_via_anchor_keeps_stops_and_is_pass_through():
+    import json
+
+    from tools.routing import compute_routes
+
+    mock = respx.post("https://routes.googleapis.com/directions/v2:computeRoutes").mock(
+        return_value=Response(200, json=_plan_response(["I-70 E"]))
+    )
+    stop, via = Coordinate(lat=39.0, lon=-110.0), Coordinate(lat=39.1, lon=-108.45)
+    plans = compute_routes(
+        Coordinate(lat=40.76, lon=-111.89), Coordinate(lat=39.74, lon=-104.99), stops=[stop], via=via,
+        via_label="I-70 via Grand Junction, CO", via_index=1, api_key="k",
+    )
+    body = json.loads(mock.calls.last.request.content)
+    assert body["computeAlternativeRoutes"] is False
+    assert [i.get("via", False) for i in body["intermediates"]] == [False, True]
+    assert plans[0].route_id == "via:i-70-via-grand-junction-co" and plans[0].source == "via_anchor"
+
+
+@respx.mock
+def test_route_cache_serves_repeats_and_replay_mode_never_calls_the_api(tmp_path):
+    from tools.routing import RouteCache, compute_routes
+
+    mock = respx.post("https://routes.googleapis.com/directions/v2:computeRoutes").mock(
+        return_value=Response(200, json=_plan_response(["I-80 E"]))
+    )
+    o, d = Coordinate(lat=40.76, lon=-111.89), Coordinate(lat=39.74, lon=-104.99)
+    live = RouteCache(tmp_path, mode="live")
+    compute_routes(o, d, cache=live, api_key="k")
+    compute_routes(o, d, cache=live, api_key="k")
+    assert mock.call_count == 1 and (live.live_calls, live.cached_calls) == (1, 1)
+
+    replay = RouteCache(tmp_path, mode="replay")  # fresh process: reads the recorded file
+    assert compute_routes(o, d, cache=replay)[0].description == "I-80 E"
+    with pytest.raises(RoutingError):
+        compute_routes(o, Coordinate(lat=35.0, lon=-100.0), cache=replay)
+    assert mock.call_count == 1
