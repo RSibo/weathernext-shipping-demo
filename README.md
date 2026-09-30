@@ -8,6 +8,8 @@
 
 A fleet dispatch agent that reads the **Google WeatherNext 3** forecast along every truck's route, at the hour the truck will actually be there, and decides what the dispatcher should do: **CLEAR**, **MONITOR**, **REROUTE** or **HOLD**. Deterministic Python finds the hazards, a detour that really avoids them (via the **Google Maps Routes API**), and the earliest safe departure. **Gemini 3.8 Flash** weighs those options and writes the advisory. Code then checks the advisory before anyone sees it: the decision must be one the evidence allows, and every number must trace back to a tool result.
 
+**▶ Live demo: <https://weathernext-route-agent-174854610729.us-central1.run.app>**. It serves a recorded WeatherNext 3 forecast. Agent runs call Gemini live up to a daily cap; after that, recorded runs play, labelled *Recorded run*.
+
 ![Hero run: an empty dry van from Salt Lake City to Denver is rerouted off I-80 onto I-70 around a WeatherNext 3 wind event](docs/hero.jpg)
 
 ---
