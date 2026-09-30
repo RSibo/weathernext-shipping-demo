@@ -114,9 +114,11 @@ if [ -z "${SKIP_SETUP:-}" ]; then
 
   step "Budget alert (\$50, email at 50/90/100%)"
   BILLING_ACCOUNT="$(gcloud billing projects describe "$PROJECT_ID" --format='value(billingAccountName)' | sed 's#^billingAccounts/##')"
-  if gcloud billing budgets list --billing-account "$BILLING_ACCOUNT" --format='value(displayName)' 2>/dev/null | grep -x "$SERVICE" >/dev/null; then
+  # --billing-project: the Budget API is called through this project, not gcloud's default one.
+  if gcloud billing budgets list --billing-account "$BILLING_ACCOUNT" --billing-project "$PROJECT_ID" \
+    --format='value(displayName)' 2>/dev/null | grep -x "$SERVICE" >/dev/null; then
     echo "    exists"
-  elif ! gcloud billing budgets create --billing-account "$BILLING_ACCOUNT" --display-name "$SERVICE" \
+  elif ! gcloud billing budgets create --billing-account "$BILLING_ACCOUNT" --billing-project "$PROJECT_ID" --display-name "$SERVICE" \
     --budget-amount 50USD --filter-projects "projects/$PROJECT_ID" \
     --threshold-rule percent=0.5 --threshold-rule percent=0.9 --threshold-rule percent=1.0 >/dev/null; then
     echo "    skipped: this account cannot create budgets on $BILLING_ACCOUNT (not fatal)"
@@ -178,8 +180,12 @@ if [ -n "$MAPS_JS_KEY" ]; then
   REFERRERS="$URL/*,$DEV_REFERRERS"
   if [ -n "$STATUS_URL" ] && [ "$STATUS_URL" != "$URL" ]; then REFERRERS="$REFERRERS,$STATUS_URL/*"; fi
   KEY_NAME="$(gcloud services api-keys lookup "$MAPS_JS_KEY" --format='value(name)')"
-  gcloud services api-keys update "$KEY_NAME" --allowed-referrers="$REFERRERS" \
-    --api-target=service=maps-backend.googleapis.com --quiet >/dev/null
+  # The finished operation prints the key's metadata; show it only if the update fails.
+  if ! KEY_OUT="$(gcloud services api-keys update "$KEY_NAME" --allowed-referrers="$REFERRERS" \
+    --api-target=service=maps-backend.googleapis.com --quiet 2>&1)"; then
+    echo "$KEY_OUT" >&2
+    exit 1
+  fi
   echo "    referrers: $REFERRERS"
 else
   echo "warning: MAPS_JS_API_KEY is not set; the map will not load" >&2
