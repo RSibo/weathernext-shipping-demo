@@ -15,9 +15,6 @@ venv/
 dist/
 build/
 .coverage
-data/replay/
-data/routes_cache/
-data/golden/
 
 # Frontend
 node_modules/

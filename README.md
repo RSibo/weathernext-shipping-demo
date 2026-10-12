@@ -44,17 +44,17 @@ A fleet dispatch agent that reads the **Google WeatherNext 3** forecast along ev
 
 ---
 
-## 🎬 The Demo: One Storm, Five Trucks, Four Decisions
+## 🎬 The Demo: Eastern Australia Corridors (Sydney · Brisbane · Melbourne)
 
-The replay uses the real WeatherNext 3 forecast issued **2026-03-12 06:00Z**: a wind event over I-80 in southern Wyoming. The story's "now" is 10:00 MDT that morning. The fleet is defined in [`data/demo_fleet.json`](data/demo_fleet.json).
+The demo showcases five linehaul shipments across Eastern Australia (Sydney, Brisbane, Melbourne) facing a coastal storm and tablelands gale. The fleet is defined in [`data/demo_fleet.json`](data/demo_fleet.json) and can be rebuilt via [`scripts/bootstrap_australia.py`](scripts/bootstrap_australia.py).
 
 | Shipment | Lane | Cargo → wind limit | Recorded decision |
 |---|---|---|---|
-| **SHP-2001** ★ | Salt Lake City → Denver | Empty 53' dry van → 35 mph | **REROUTE** via I-70 E: +14 min, +4 mi (+7 km), $8 est. I-80 peaks at 42 mph near Point of Rocks, WY |
-| SHP-2002 | Salt Lake City → Denver | Steel coils, flatbed → 45 mph | **MONITOR**: same storm, 42 mph is within 15% of the 45 mph limit |
-| SHP-2003 | Rock Springs → Cheyenne | Empty 53' dry van → 35 mph | **HOLD** 12 h: no detour avoids the wind; departing 22:00 MDT still meets the deadline |
-| SHP-2004 | Phoenix → Los Angeles | Bulk cement, flatbed → 45 mph | **CLEAR**: peak 14 mph |
-| SHP-2005 | Houston → Dallas → Oklahoma City | Automotive parts, dry van → 35 mph | **CLEAR**: peak 18 mph, keeps the Dallas stop |
+| **SHP-2001** ★ | Sydney, NSW → Melbourne, VIC | Empty 53' dry van → 35 mph | **REROUTE** via coastal A1 Princes Hwy: baseline M31 Hume Hwy peaks at 40 mph near Yass, NSW |
+| SHP-2002 | Sydney, NSW → Melbourne, VIC | Steel coils, flatbed → 45 mph | **MONITOR**: same M31 Hume corridor, 40 mph is safe for flatbed 45 mph limit |
+| SHP-2003 | Sydney, NSW → Brisbane, QLD | Empty 53' dry van → 35 mph | **HOLD** 12 h: coastal M1 and inland New England Hwy both breach; holding 12h clears the front |
+| SHP-2004 | Melbourne, VIC → Sydney, NSW | Bulk cement, flatbed → 45 mph | **CLEAR**: northbound on M31 passes after the morning wind front subsides (peak 17 mph) |
+| SHP-2005 | Brisbane, QLD → Melbourne, VIC (via Dubbo) | Automotive parts, dry van → 35 mph | **CLEAR**: inland A39 Newell Hwy bypasses coastal/tablelands storm cells (peak 17 mph) |
 
 ---
 

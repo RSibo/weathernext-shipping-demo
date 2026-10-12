@@ -118,3 +118,42 @@ def test_mcp_server_cli_help():
     with pytest.raises(SystemExit) as exc:
         main(["--help"])
     assert exc.value.code == 0
+
+
+@pytest.mark.asyncio
+async def test_mcp_get_weather_forecast_uses_cube_weather_check():
+    mock_weather = RouteWeatherResult(
+        shipment_id="adhoc-query",
+        observations=[
+            WeatherObservation(
+                waypoint_name="Salt Lake City, UT",
+                location=Coordinate(lat=40.7608, lon=-111.891),
+                valid_time=_NOW,
+                wind_speed_mph=12.0,
+                precip_mm_hr=0.0,
+                temp_f=55.0,
+                breached=False,
+            )
+        ],
+    )
+    with patch("mcp_server._cube_weather_check", return_value=mock_weather) as mocked:
+        server = build_server()
+        result = await server._tool_manager.call_tool(
+            "get_weather_forecast",
+            {
+                "waypoints": [
+                    {
+                        "name": "Salt Lake City, UT",
+                        "location": {"lat": 40.7608, "lon": -111.891},
+                        "eta": _NOW.isoformat(),
+                    }
+                ],
+                "cargo_description": "dry van",
+            },
+            Context(),
+        )
+
+    assert mocked.called
+    assert result.shipment_id == "adhoc-query"
+    assert result.observations[0].waypoint_name == "Salt Lake City, UT"
+

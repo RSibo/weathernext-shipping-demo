@@ -12,13 +12,21 @@ function GoogleStage({ mapId }: { mapId: string }) {
   const setMapsFailed = useStore((s) => s.setMapsFailed);
   useEffect(() => {
     if (status === APILoadingStatus.AUTH_FAILURE || status === APILoadingStatus.FAILED) setMapsFailed();
+    const prev = (window as unknown as { gm_authFailure?: () => void }).gm_authFailure;
+    (window as unknown as { gm_authFailure?: () => void }).gm_authFailure = () => {
+      setMapsFailed();
+      prev?.();
+    };
+    return () => {
+      (window as unknown as { gm_authFailure?: () => void }).gm_authFailure = prev;
+    };
   }, [status, setMapsFailed]);
 
   // First paint already framed on the selected lane; the Framer takes over from there.
   const initial = useMemo(() => {
     const s = useStore.getState();
     const b = frameBounds("lane", s.fleet?.entries ?? [], s.selectedId, selectRun(s));
-    const c = b ? fitCamera(b, window.innerWidth, window.innerHeight - 56, panelPadding(window.innerWidth, s.stage)) : { lon: -108, lat: 40.5, zoom: 5 };
+    const c = b ? fitCamera(b, window.innerWidth, window.innerHeight - 56, panelPadding(window.innerWidth, s.stage)) : { lon: 148.5, lat: -33.0, zoom: 5 };
     return { center: { lng: c.lon, lat: c.lat }, zoom: c.zoom + 1 };
   }, []);
 

@@ -1,582 +1,937 @@
 [
-{
-"name": "Salt Lake City, UT",
-"lat": 40.7608,
-"lon": -111.891
-},
-{
-"name": "Park City, UT",
-"lat": 40.6461,
-"lon": -111.498
-},
-{
-"name": "Coalville, UT",
-"lat": 40.918,
-"lon": -111.3996
-},
-{
-"name": "Evanston, WY",
-"lat": 41.2683,
-"lon": -110.9632
-},
-{
-"name": "Lyman, WY",
-"lat": 41.3277,
-"lon": -110.2932
-},
-{
-"name": "Little America, WY",
-"lat": 41.5436,
-"lon": -109.8546
-},
-{
-"name": "Green River, WY",
-"lat": 41.5286,
-"lon": -109.4662
-},
-{
-"name": "Rock Springs, WY",
-"lat": 41.5875,
-"lon": -109.2029
-},
-{
-"name": "Point of Rocks, WY",
-"lat": 41.68,
-"lon": -108.785
-},
-{
-"name": "Table Rock, WY",
-"lat": 41.69,
-"lon": -108.37
-},
-{
-"name": "Wamsutter, WY",
-"lat": 41.6727,
-"lon": -107.9723
-},
-{
-"name": "Creston Junction, WY",
-"lat": 41.704,
-"lon": -107.74
-},
-{
-"name": "Rawlins, WY",
-"lat": 41.7911,
-"lon": -107.2387
-},
-{
-"name": "Sinclair, WY",
-"lat": 41.7797,
-"lon": -107.1128
-},
-{
-"name": "Walcott Junction, WY",
-"lat": 41.76,
-"lon": -106.85
-},
-{
-"name": "Elk Mountain, WY",
-"lat": 41.6877,
-"lon": -106.4131
-},
-{
-"name": "Arlington, WY",
-"lat": 41.5947,
-"lon": -106.2092
-},
-{
-"name": "Cooper Cove, WY",
-"lat": 41.46,
-"lon": -105.91
-},
-{
-"name": "Laramie, WY",
-"lat": 41.3114,
-"lon": -105.5911
-},
-{
-"name": "Buford, WY",
-"lat": 41.1236,
-"lon": -105.3
-},
-{
-"name": "Cheyenne, WY",
-"lat": 41.14,
-"lon": -104.8202
-},
-{
-"name": "Medicine Bow, WY",
-"lat": 41.8969,
-"lon": -106.202
-},
-{
-"name": "Rock River, WY",
-"lat": 41.7394,
-"lon": -105.9744
-},
-{
-"name": "Bosler, WY",
-"lat": 41.5747,
-"lon": -105.6964
-},
-{
-"name": "Saratoga, WY",
-"lat": 41.4549,
-"lon": -106.8064
-},
-{
-"name": "Encampment, WY",
-"lat": 41.2069,
-"lon": -106.7928
-},
-{
-"name": "Woods Landing, WY",
-"lat": 41.0797,
-"lon": -106.0217
-},
-{
-"name": "Walden, CO",
-"lat": 40.7316,
-"lon": -106.2839
-},
-{
-"name": "Fort Collins, CO",
-"lat": 40.5853,
-"lon": -105.0844
-},
-{
-"name": "Loveland, CO",
-"lat": 40.3978,
-"lon": -105.075
-},
-{
-"name": "Longmont, CO",
-"lat": 40.1672,
-"lon": -105.1019
-},
-{
-"name": "Denver, CO",
-"lat": 39.7392,
-"lon": -104.9903
-},
-{
-"name": "Golden, CO",
-"lat": 39.7555,
-"lon": -105.2211
-},
-{
-"name": "Provo, UT",
-"lat": 40.2338,
-"lon": -111.6585
-},
-{
-"name": "Spanish Fork, UT",
-"lat": 40.115,
-"lon": -111.6549
-},
-{
-"name": "Soldier Summit, UT",
-"lat": 39.9291,
-"lon": -111.0788
-},
-{
-"name": "Helper, UT",
-"lat": 39.6841,
-"lon": -110.8546
-},
-{
-"name": "Price, UT",
-"lat": 39.5994,
-"lon": -110.8107
-},
-{
-"name": "Wellington, UT",
-"lat": 39.5425,
-"lon": -110.7352
-},
-{
-"name": "Woodside, UT",
-"lat": 39.265,
-"lon": -110.345
-},
-{
-"name": "Green River, UT",
-"lat": 38.9953,
-"lon": -110.16
-},
-{
-"name": "Crescent Junction, UT",
-"lat": 38.9375,
-"lon": -109.8195
-},
-{
-"name": "Thompson Springs, UT",
-"lat": 38.9719,
-"lon": -109.7132
-},
-{
-"name": "Cisco, UT",
-"lat": 38.97,
-"lon": -109.32
-},
-{
-"name": "Mack, CO",
-"lat": 39.2236,
-"lon": -108.8651
-},
-{
-"name": "Fruita, CO",
-"lat": 39.1589,
-"lon": -108.729
-},
-{
-"name": "Grand Junction, CO",
-"lat": 39.0639,
-"lon": -108.5506
-},
-{
-"name": "Palisade, CO",
-"lat": 39.1103,
-"lon": -108.3509
-},
-{
-"name": "De Beque, CO",
-"lat": 39.3322,
-"lon": -108.215
-},
-{
-"name": "Parachute, CO",
-"lat": 39.4519,
-"lon": -108.0529
-},
-{
-"name": "Rifle, CO",
-"lat": 39.5347,
-"lon": -107.7831
-},
-{
-"name": "New Castle, CO",
-"lat": 39.5728,
-"lon": -107.5362
-},
-{
-"name": "Glenwood Springs, CO",
-"lat": 39.5505,
-"lon": -107.3248
-},
-{
-"name": "Dotsero, CO",
-"lat": 39.6444,
-"lon": -107.0658
-},
-{
-"name": "Gypsum, CO",
-"lat": 39.6469,
-"lon": -106.9517
-},
-{
-"name": "Eagle, CO",
-"lat": 39.6553,
-"lon": -106.8287
-},
-{
-"name": "Edwards, CO",
-"lat": 39.645,
-"lon": -106.5942
-},
-{
-"name": "Vail, CO",
-"lat": 39.6403,
-"lon": -106.3742
-},
-{
-"name": "Vail Pass, CO",
-"lat": 39.5311,
-"lon": -106.217
-},
-{
-"name": "Frisco, CO",
-"lat": 39.5744,
-"lon": -106.0975
-},
-{
-"name": "Silverthorne, CO",
-"lat": 39.6296,
-"lon": -106.0717
-},
-{
-"name": "Eisenhower Tunnel, CO",
-"lat": 39.6797,
-"lon": -105.9175
-},
-{
-"name": "Georgetown, CO",
-"lat": 39.7061,
-"lon": -105.6975
-},
-{
-"name": "Idaho Springs, CO",
-"lat": 39.7425,
-"lon": -105.5136
-},
-{
-"name": "Heber City, UT",
-"lat": 40.507,
-"lon": -111.4133
-},
-{
-"name": "Strawberry Reservoir, UT",
-"lat": 40.175,
-"lon": -111.13
-},
-{
-"name": "Duchesne, UT",
-"lat": 40.1633,
-"lon": -110.4029
-},
-{
-"name": "Roosevelt, UT",
-"lat": 40.2994,
-"lon": -109.9888
-},
-{
-"name": "Vernal, UT",
-"lat": 40.4555,
-"lon": -109.5287
-},
-{
-"name": "Dinosaur, CO",
-"lat": 40.2436,
-"lon": -109.0154
-},
-{
-"name": "Maybell, CO",
-"lat": 40.5169,
-"lon": -108.0881
-},
-{
-"name": "Craig, CO",
-"lat": 40.5153,
-"lon": -107.5464
-},
-{
-"name": "Hayden, CO",
-"lat": 40.4953,
-"lon": -107.2573
-},
-{
-"name": "Steamboat Springs, CO",
-"lat": 40.485,
-"lon": -106.8317
-},
-{
-"name": "Rabbit Ears Pass, CO",
-"lat": 40.385,
-"lon": -106.611
-},
-{
-"name": "Kremmling, CO",
-"lat": 40.0589,
-"lon": -106.3886
-},
-{
-"name": "Granby, CO",
-"lat": 40.0861,
-"lon": -105.9395
-},
-{
-"name": "Winter Park, CO",
-"lat": 39.8917,
-"lon": -105.7631
-},
-{
-"name": "Berthoud Pass, CO",
-"lat": 39.7981,
-"lon": -105.7775
-},
-{
-"name": "Empire, CO",
-"lat": 39.76,
-"lon": -105.6836
-},
-{
-"name": "Phoenix, AZ",
-"lat": 33.4484,
-"lon": -112.074
-},
-{
-"name": "Buckeye, AZ",
-"lat": 33.3703,
-"lon": -112.5838
-},
-{
-"name": "Tonopah, AZ",
-"lat": 33.4931,
-"lon": -112.934
-},
-{
-"name": "Salome, AZ",
-"lat": 33.7811,
-"lon": -113.6146
-},
-{
-"name": "Quartzsite, AZ",
-"lat": 33.6639,
-"lon": -114.2299
-},
-{
-"name": "Blythe, CA",
-"lat": 33.6103,
-"lon": -114.5964
-},
-{
-"name": "Desert Center, CA",
-"lat": 33.7128,
-"lon": -115.4011
-},
-{
-"name": "Chiriaco Summit, CA",
-"lat": 33.6614,
-"lon": -115.7219
-},
-{
-"name": "Indio, CA",
-"lat": 33.7206,
-"lon": -116.2156
-},
-{
-"name": "Palm Springs, CA",
-"lat": 33.8303,
-"lon": -116.5453
-},
-{
-"name": "Banning, CA",
-"lat": 33.9256,
-"lon": -116.8764
-},
-{
-"name": "Redlands, CA",
-"lat": 34.0556,
-"lon": -117.1825
-},
-{
-"name": "San Bernardino, CA",
-"lat": 34.1083,
-"lon": -117.2898
-},
-{
-"name": "Ontario, CA",
-"lat": 34.0633,
-"lon": -117.6509
-},
-{
-"name": "West Covina, CA",
-"lat": 34.0686,
-"lon": -117.939
-},
-{
-"name": "Los Angeles, CA",
-"lat": 34.0522,
-"lon": -118.2437
-},
-{
-"name": "Gila Bend, AZ",
-"lat": 32.9478,
-"lon": -112.7168
-},
-{
-"name": "Yuma, AZ",
-"lat": 32.6927,
-"lon": -114.6277
-},
-{
-"name": "El Centro, CA",
-"lat": 32.792,
-"lon": -115.5631
-},
-{
-"name": "Houston, TX",
-"lat": 29.7604,
-"lon": -95.3698
-},
-{
-"name": "The Woodlands, TX",
-"lat": 30.1658,
-"lon": -95.4613
-},
-{
-"name": "Conroe, TX",
-"lat": 30.3119,
-"lon": -95.4561
-},
-{
-"name": "Huntsville, TX",
-"lat": 30.7235,
-"lon": -95.5508
-},
-{
-"name": "Madisonville, TX",
-"lat": 30.9496,
-"lon": -95.9116
-},
-{
-"name": "Buffalo, TX",
-"lat": 31.4638,
-"lon": -96.058
-},
-{
-"name": "Fairfield, TX",
-"lat": 31.7246,
-"lon": -96.1655
-},
-{
-"name": "Corsicana, TX",
-"lat": 32.0954,
-"lon": -96.4689
-},
-{
-"name": "Ennis, TX",
-"lat": 32.3293,
-"lon": -96.6253
-},
-{
-"name": "Dallas, TX",
-"lat": 32.7767,
-"lon": -96.8088
-},
-{
-"name": "Denton, TX",
-"lat": 33.2148,
-"lon": -97.1331
-},
-{
-"name": "Gainesville, TX",
-"lat": 33.6259,
-"lon": -97.1334
-},
-{
-"name": "Ardmore, OK",
-"lat": 34.1743,
-"lon": -97.1436
-},
-{
-"name": "Pauls Valley, OK",
-"lat": 34.7401,
-"lon": -97.2222
-},
-{
-"name": "Purcell, OK",
-"lat": 35.0137,
-"lon": -97.3611
-},
-{
-"name": "Norman, OK",
-"lat": 35.2226,
-"lon": -97.4395
-},
-{
-"name": "Oklahoma City, OK",
-"lat": 35.4676,
-"lon": -97.5164
-}
+  {
+    "name": "Sydney, NSW",
+    "lat": -33.8688,
+    "lon": 151.2093
+  },
+  {
+    "name": "Liverpool, NSW",
+    "lat": -33.92,
+    "lon": 150.9255
+  },
+  {
+    "name": "Campbelltown, NSW",
+    "lat": -34.065,
+    "lon": 150.8142
+  },
+  {
+    "name": "Mittagong, NSW",
+    "lat": -34.4519,
+    "lon": 150.4503
+  },
+  {
+    "name": "Goulburn, NSW",
+    "lat": -34.7546,
+    "lon": 149.7186
+  },
+  {
+    "name": "Yass, NSW",
+    "lat": -34.8403,
+    "lon": 148.9136
+  },
+  {
+    "name": "Gundagai, NSW",
+    "lat": -35.0653,
+    "lon": 148.1069
+  },
+  {
+    "name": "Tarcutta, NSW",
+    "lat": -35.2764,
+    "lon": 147.7347
+  },
+  {
+    "name": "Holbrook, NSW",
+    "lat": -35.7244,
+    "lon": 147.3139
+  },
+  {
+    "name": "Albury, NSW",
+    "lat": -36.0737,
+    "lon": 146.9135
+  },
+  {
+    "name": "Wodonga, VIC",
+    "lat": -36.1214,
+    "lon": 146.8881
+  },
+  {
+    "name": "Wangaratta, VIC",
+    "lat": -36.3584,
+    "lon": 146.3125
+  },
+  {
+    "name": "Benalla, VIC",
+    "lat": -36.5519,
+    "lon": 145.9817
+  },
+  {
+    "name": "Euroa, VIC",
+    "lat": -36.75,
+    "lon": 145.5667
+  },
+  {
+    "name": "Seymour, VIC",
+    "lat": -37.0267,
+    "lon": 145.1392
+  },
+  {
+    "name": "Melbourne, VIC",
+    "lat": -37.8136,
+    "lon": 144.9631
+  },
+  {
+    "name": "Wollongong, NSW",
+    "lat": -34.4278,
+    "lon": 150.8931
+  },
+  {
+    "name": "Nowra, NSW",
+    "lat": -34.8736,
+    "lon": 150.6025
+  },
+  {
+    "name": "Ulladulla, NSW",
+    "lat": -35.3575,
+    "lon": 150.4733
+  },
+  {
+    "name": "Batemans Bay, NSW",
+    "lat": -35.7081,
+    "lon": 150.1744
+  },
+  {
+    "name": "Narooma, NSW",
+    "lat": -36.2164,
+    "lon": 150.1236
+  },
+  {
+    "name": "Bega, NSW",
+    "lat": -36.6739,
+    "lon": 149.8417
+  },
+  {
+    "name": "Eden, NSW",
+    "lat": -37.0633,
+    "lon": 149.9039
+  },
+  {
+    "name": "Cann River, VIC",
+    "lat": -37.5667,
+    "lon": 149.15
+  },
+  {
+    "name": "Orbost, VIC",
+    "lat": -37.7042,
+    "lon": 148.4556
+  },
+  {
+    "name": "Bairnsdale, VIC",
+    "lat": -37.8253,
+    "lon": 147.6286
+  },
+  {
+    "name": "Sale, VIC",
+    "lat": -38.1065,
+    "lon": 147.068
+  },
+  {
+    "name": "Traralgon, VIC",
+    "lat": -38.1958,
+    "lon": 146.5403
+  },
+  {
+    "name": "Warragul, VIC",
+    "lat": -38.1631,
+    "lon": 145.9333
+  },
+  {
+    "name": "Canberra, ACT",
+    "lat": -35.2809,
+    "lon": 149.13
+  },
+  {
+    "name": "Cooma, NSW",
+    "lat": -36.235,
+    "lon": 149.1258
+  },
+  {
+    "name": "Bombala, NSW",
+    "lat": -36.9114,
+    "lon": 149.2375
+  },
+  {
+    "name": "Lithgow, NSW",
+    "lat": -33.4808,
+    "lon": 150.1575
+  },
+  {
+    "name": "Bathurst, NSW",
+    "lat": -33.4193,
+    "lon": 149.5775
+  },
+  {
+    "name": "Cowra, NSW",
+    "lat": -33.8347,
+    "lon": 148.6911
+  },
+  {
+    "name": "Young, NSW",
+    "lat": -34.3125,
+    "lon": 148.3011
+  },
+  {
+    "name": "Wagga Wagga, NSW",
+    "lat": -35.1082,
+    "lon": 147.3598
+  },
+  {
+    "name": "Gosford, NSW",
+    "lat": -33.4267,
+    "lon": 151.3417
+  },
+  {
+    "name": "Newcastle, NSW",
+    "lat": -32.9283,
+    "lon": 151.7817
+  },
+  {
+    "name": "Taree, NSW",
+    "lat": -31.9108,
+    "lon": 152.4594
+  },
+  {
+    "name": "Port Macquarie, NSW",
+    "lat": -31.4308,
+    "lon": 152.9089
+  },
+  {
+    "name": "Kempsey, NSW",
+    "lat": -31.0792,
+    "lon": 152.8306
+  },
+  {
+    "name": "Coffs Harbour, NSW",
+    "lat": -30.2963,
+    "lon": 153.1157
+  },
+  {
+    "name": "Grafton, NSW",
+    "lat": -29.6908,
+    "lon": 152.9331
+  },
+  {
+    "name": "Ballina, NSW",
+    "lat": -28.8667,
+    "lon": 153.5667
+  },
+  {
+    "name": "Byron Bay, NSW",
+    "lat": -28.6474,
+    "lon": 153.602
+  },
+  {
+    "name": "Gold Coast, QLD",
+    "lat": -28.0167,
+    "lon": 153.4
+  },
+  {
+    "name": "Brisbane, QLD",
+    "lat": -27.4698,
+    "lon": 153.0251
+  },
+  {
+    "name": "Singleton, NSW",
+    "lat": -32.5686,
+    "lon": 151.1753
+  },
+  {
+    "name": "Muswellbrook, NSW",
+    "lat": -32.2656,
+    "lon": 150.8886
+  },
+  {
+    "name": "Scone, NSW",
+    "lat": -32.0481,
+    "lon": 150.8678
+  },
+  {
+    "name": "Tamworth, NSW",
+    "lat": -31.0927,
+    "lon": 150.929
+  },
+  {
+    "name": "Armidale, NSW",
+    "lat": -30.512,
+    "lon": 151.666
+  },
+  {
+    "name": "Glen Innes, NSW",
+    "lat": -29.7406,
+    "lon": 151.7358
+  },
+  {
+    "name": "Tenterfield, NSW",
+    "lat": -29.0553,
+    "lon": 152.0178
+  },
+  {
+    "name": "Warwick, QLD",
+    "lat": -28.2152,
+    "lon": 152.035
+  },
+  {
+    "name": "Ipswich, QLD",
+    "lat": -27.6144,
+    "lon": 152.7608
+  },
+  {
+    "name": "Toowoomba, QLD",
+    "lat": -27.5598,
+    "lon": 151.9507
+  },
+  {
+    "name": "Goondiwindi, QLD",
+    "lat": -28.5461,
+    "lon": 150.3097
+  },
+  {
+    "name": "Moree, NSW",
+    "lat": -29.4658,
+    "lon": 149.8417
+  },
+  {
+    "name": "Narrabri, NSW",
+    "lat": -30.325,
+    "lon": 149.7828
+  },
+  {
+    "name": "Coonabarabran, NSW",
+    "lat": -31.2756,
+    "lon": 149.2775
+  },
+  {
+    "name": "Gilgandra, NSW",
+    "lat": -31.7097,
+    "lon": 148.6631
+  },
+  {
+    "name": "Dubbo, NSW",
+    "lat": -32.243,
+    "lon": 148.6011
+  },
+  {
+    "name": "Parkes, NSW",
+    "lat": -33.1372,
+    "lon": 148.1758
+  },
+  {
+    "name": "Forbes, NSW",
+    "lat": -33.3844,
+    "lon": 148.0078
+  },
+  {
+    "name": "West Wyalong, NSW",
+    "lat": -33.9261,
+    "lon": 147.2094
+  },
+  {
+    "name": "Narrandera, NSW",
+    "lat": -34.7475,
+    "lon": 146.5503
+  },
+  {
+    "name": "Jerilderie, NSW",
+    "lat": -35.3561,
+    "lon": 145.7294
+  },
+  {
+    "name": "Tocumwal, NSW",
+    "lat": -35.8114,
+    "lon": 145.5639
+  },
+  {
+    "name": "Shepparton, VIC",
+    "lat": -36.3833,
+    "lon": 145.4
+  },
+  {
+    "name": "Salt Lake City, UT",
+    "lat": 40.7608,
+    "lon": -111.891
+  },
+  {
+    "name": "Park City, UT",
+    "lat": 40.6461,
+    "lon": -111.498
+  },
+  {
+    "name": "Coalville, UT",
+    "lat": 40.918,
+    "lon": -111.3996
+  },
+  {
+    "name": "Evanston, WY",
+    "lat": 41.2683,
+    "lon": -110.9632
+  },
+  {
+    "name": "Lyman, WY",
+    "lat": 41.3277,
+    "lon": -110.2932
+  },
+  {
+    "name": "Little America, WY",
+    "lat": 41.5436,
+    "lon": -109.8546
+  },
+  {
+    "name": "Green River, WY",
+    "lat": 41.5286,
+    "lon": -109.4662
+  },
+  {
+    "name": "Rock Springs, WY",
+    "lat": 41.5875,
+    "lon": -109.2029
+  },
+  {
+    "name": "Point of Rocks, WY",
+    "lat": 41.68,
+    "lon": -108.785
+  },
+  {
+    "name": "Table Rock, WY",
+    "lat": 41.69,
+    "lon": -108.37
+  },
+  {
+    "name": "Wamsutter, WY",
+    "lat": 41.6727,
+    "lon": -107.9723
+  },
+  {
+    "name": "Creston Junction, WY",
+    "lat": 41.704,
+    "lon": -107.74
+  },
+  {
+    "name": "Rawlins, WY",
+    "lat": 41.7911,
+    "lon": -107.2387
+  },
+  {
+    "name": "Sinclair, WY",
+    "lat": 41.7797,
+    "lon": -107.1128
+  },
+  {
+    "name": "Walcott Junction, WY",
+    "lat": 41.76,
+    "lon": -106.85
+  },
+  {
+    "name": "Elk Mountain, WY",
+    "lat": 41.6877,
+    "lon": -106.4131
+  },
+  {
+    "name": "Arlington, WY",
+    "lat": 41.5947,
+    "lon": -106.2092
+  },
+  {
+    "name": "Cooper Cove, WY",
+    "lat": 41.46,
+    "lon": -105.91
+  },
+  {
+    "name": "Laramie, WY",
+    "lat": 41.3114,
+    "lon": -105.5911
+  },
+  {
+    "name": "Buford, WY",
+    "lat": 41.1236,
+    "lon": -105.3
+  },
+  {
+    "name": "Cheyenne, WY",
+    "lat": 41.14,
+    "lon": -104.8202
+  },
+  {
+    "name": "Medicine Bow, WY",
+    "lat": 41.8969,
+    "lon": -106.202
+  },
+  {
+    "name": "Rock River, WY",
+    "lat": 41.7394,
+    "lon": -105.9744
+  },
+  {
+    "name": "Bosler, WY",
+    "lat": 41.5747,
+    "lon": -105.6964
+  },
+  {
+    "name": "Saratoga, WY",
+    "lat": 41.4549,
+    "lon": -106.8064
+  },
+  {
+    "name": "Encampment, WY",
+    "lat": 41.2069,
+    "lon": -106.7928
+  },
+  {
+    "name": "Woods Landing, WY",
+    "lat": 41.0797,
+    "lon": -106.0217
+  },
+  {
+    "name": "Walden, CO",
+    "lat": 40.7316,
+    "lon": -106.2839
+  },
+  {
+    "name": "Fort Collins, CO",
+    "lat": 40.5853,
+    "lon": -105.0844
+  },
+  {
+    "name": "Loveland, CO",
+    "lat": 40.3978,
+    "lon": -105.075
+  },
+  {
+    "name": "Longmont, CO",
+    "lat": 40.1672,
+    "lon": -105.1019
+  },
+  {
+    "name": "Denver, CO",
+    "lat": 39.7392,
+    "lon": -104.9903
+  },
+  {
+    "name": "Golden, CO",
+    "lat": 39.7555,
+    "lon": -105.2211
+  },
+  {
+    "name": "Provo, UT",
+    "lat": 40.2338,
+    "lon": -111.6585
+  },
+  {
+    "name": "Spanish Fork, UT",
+    "lat": 40.115,
+    "lon": -111.6549
+  },
+  {
+    "name": "Soldier Summit, UT",
+    "lat": 39.9291,
+    "lon": -111.0788
+  },
+  {
+    "name": "Helper, UT",
+    "lat": 39.6841,
+    "lon": -110.8546
+  },
+  {
+    "name": "Price, UT",
+    "lat": 39.5994,
+    "lon": -110.8107
+  },
+  {
+    "name": "Wellington, UT",
+    "lat": 39.5425,
+    "lon": -110.7352
+  },
+  {
+    "name": "Woodside, UT",
+    "lat": 39.265,
+    "lon": -110.345
+  },
+  {
+    "name": "Green River, UT",
+    "lat": 38.9953,
+    "lon": -110.16
+  },
+  {
+    "name": "Crescent Junction, UT",
+    "lat": 38.9375,
+    "lon": -109.8195
+  },
+  {
+    "name": "Thompson Springs, UT",
+    "lat": 38.9719,
+    "lon": -109.7132
+  },
+  {
+    "name": "Cisco, UT",
+    "lat": 38.97,
+    "lon": -109.32
+  },
+  {
+    "name": "Mack, CO",
+    "lat": 39.2236,
+    "lon": -108.8651
+  },
+  {
+    "name": "Fruita, CO",
+    "lat": 39.1589,
+    "lon": -108.729
+  },
+  {
+    "name": "Grand Junction, CO",
+    "lat": 39.0639,
+    "lon": -108.5506
+  },
+  {
+    "name": "Palisade, CO",
+    "lat": 39.1103,
+    "lon": -108.3509
+  },
+  {
+    "name": "De Beque, CO",
+    "lat": 39.3322,
+    "lon": -108.215
+  },
+  {
+    "name": "Parachute, CO",
+    "lat": 39.4519,
+    "lon": -108.0529
+  },
+  {
+    "name": "Rifle, CO",
+    "lat": 39.5347,
+    "lon": -107.7831
+  },
+  {
+    "name": "New Castle, CO",
+    "lat": 39.5728,
+    "lon": -107.5362
+  },
+  {
+    "name": "Glenwood Springs, CO",
+    "lat": 39.5505,
+    "lon": -107.3248
+  },
+  {
+    "name": "Dotsero, CO",
+    "lat": 39.6444,
+    "lon": -107.0658
+  },
+  {
+    "name": "Gypsum, CO",
+    "lat": 39.6469,
+    "lon": -106.9517
+  },
+  {
+    "name": "Eagle, CO",
+    "lat": 39.6553,
+    "lon": -106.8287
+  },
+  {
+    "name": "Edwards, CO",
+    "lat": 39.645,
+    "lon": -106.5942
+  },
+  {
+    "name": "Vail, CO",
+    "lat": 39.6403,
+    "lon": -106.3742
+  },
+  {
+    "name": "Vail Pass, CO",
+    "lat": 39.5311,
+    "lon": -106.217
+  },
+  {
+    "name": "Frisco, CO",
+    "lat": 39.5744,
+    "lon": -106.0975
+  },
+  {
+    "name": "Silverthorne, CO",
+    "lat": 39.6296,
+    "lon": -106.0717
+  },
+  {
+    "name": "Eisenhower Tunnel, CO",
+    "lat": 39.6797,
+    "lon": -105.9175
+  },
+  {
+    "name": "Georgetown, CO",
+    "lat": 39.7061,
+    "lon": -105.6975
+  },
+  {
+    "name": "Idaho Springs, CO",
+    "lat": 39.7425,
+    "lon": -105.5136
+  },
+  {
+    "name": "Heber City, UT",
+    "lat": 40.507,
+    "lon": -111.4133
+  },
+  {
+    "name": "Strawberry Reservoir, UT",
+    "lat": 40.175,
+    "lon": -111.13
+  },
+  {
+    "name": "Duchesne, UT",
+    "lat": 40.1633,
+    "lon": -110.4029
+  },
+  {
+    "name": "Roosevelt, UT",
+    "lat": 40.2994,
+    "lon": -109.9888
+  },
+  {
+    "name": "Vernal, UT",
+    "lat": 40.4555,
+    "lon": -109.5287
+  },
+  {
+    "name": "Dinosaur, CO",
+    "lat": 40.2436,
+    "lon": -109.0154
+  },
+  {
+    "name": "Maybell, CO",
+    "lat": 40.5169,
+    "lon": -108.0881
+  },
+  {
+    "name": "Craig, CO",
+    "lat": 40.5153,
+    "lon": -107.5464
+  },
+  {
+    "name": "Hayden, CO",
+    "lat": 40.4953,
+    "lon": -107.2573
+  },
+  {
+    "name": "Steamboat Springs, CO",
+    "lat": 40.485,
+    "lon": -106.8317
+  },
+  {
+    "name": "Rabbit Ears Pass, CO",
+    "lat": 40.385,
+    "lon": -106.611
+  },
+  {
+    "name": "Kremmling, CO",
+    "lat": 40.0589,
+    "lon": -106.3886
+  },
+  {
+    "name": "Granby, CO",
+    "lat": 40.0861,
+    "lon": -105.9395
+  },
+  {
+    "name": "Winter Park, CO",
+    "lat": 39.8917,
+    "lon": -105.7631
+  },
+  {
+    "name": "Berthoud Pass, CO",
+    "lat": 39.7981,
+    "lon": -105.7775
+  },
+  {
+    "name": "Empire, CO",
+    "lat": 39.76,
+    "lon": -105.6836
+  },
+  {
+    "name": "Phoenix, AZ",
+    "lat": 33.4484,
+    "lon": -112.074
+  },
+  {
+    "name": "Buckeye, AZ",
+    "lat": 33.3703,
+    "lon": -112.5838
+  },
+  {
+    "name": "Tonopah, AZ",
+    "lat": 33.4931,
+    "lon": -112.934
+  },
+  {
+    "name": "Salome, AZ",
+    "lat": 33.7811,
+    "lon": -113.6146
+  },
+  {
+    "name": "Quartzsite, AZ",
+    "lat": 33.6639,
+    "lon": -114.2299
+  },
+  {
+    "name": "Blythe, CA",
+    "lat": 33.6103,
+    "lon": -114.5964
+  },
+  {
+    "name": "Desert Center, CA",
+    "lat": 33.7128,
+    "lon": -115.4011
+  },
+  {
+    "name": "Chiriaco Summit, CA",
+    "lat": 33.6614,
+    "lon": -115.7219
+  },
+  {
+    "name": "Indio, CA",
+    "lat": 33.7206,
+    "lon": -116.2156
+  },
+  {
+    "name": "Palm Springs, CA",
+    "lat": 33.8303,
+    "lon": -116.5453
+  },
+  {
+    "name": "Banning, CA",
+    "lat": 33.9256,
+    "lon": -116.8764
+  },
+  {
+    "name": "Redlands, CA",
+    "lat": 34.0556,
+    "lon": -117.1825
+  },
+  {
+    "name": "San Bernardino, CA",
+    "lat": 34.1083,
+    "lon": -117.2898
+  },
+  {
+    "name": "Ontario, CA",
+    "lat": 34.0633,
+    "lon": -117.6509
+  },
+  {
+    "name": "West Covina, CA",
+    "lat": 34.0686,
+    "lon": -117.939
+  },
+  {
+    "name": "Los Angeles, CA",
+    "lat": 34.0522,
+    "lon": -118.2437
+  },
+  {
+    "name": "Gila Bend, AZ",
+    "lat": 32.9478,
+    "lon": -112.7168
+  },
+  {
+    "name": "Yuma, AZ",
+    "lat": 32.6927,
+    "lon": -114.6277
+  },
+  {
+    "name": "El Centro, CA",
+    "lat": 32.792,
+    "lon": -115.5631
+  },
+  {
+    "name": "Houston, TX",
+    "lat": 29.7604,
+    "lon": -95.3698
+  },
+  {
+    "name": "The Woodlands, TX",
+    "lat": 30.1658,
+    "lon": -95.4613
+  },
+  {
+    "name": "Conroe, TX",
+    "lat": 30.3119,
+    "lon": -95.4561
+  },
+  {
+    "name": "Huntsville, TX",
+    "lat": 30.7235,
+    "lon": -95.5508
+  },
+  {
+    "name": "Madisonville, TX",
+    "lat": 30.9496,
+    "lon": -95.9116
+  },
+  {
+    "name": "Buffalo, TX",
+    "lat": 31.4638,
+    "lon": -96.058
+  },
+  {
+    "name": "Fairfield, TX",
+    "lat": 31.7246,
+    "lon": -96.1655
+  },
+  {
+    "name": "Corsicana, TX",
+    "lat": 32.0954,
+    "lon": -96.4689
+  },
+  {
+    "name": "Ennis, TX",
+    "lat": 32.3293,
+    "lon": -96.6253
+  },
+  {
+    "name": "Dallas, TX",
+    "lat": 32.7767,
+    "lon": -96.8088
+  },
+  {
+    "name": "Denton, TX",
+    "lat": 33.2148,
+    "lon": -97.1331
+  },
+  {
+    "name": "Gainesville, TX",
+    "lat": 33.6259,
+    "lon": -97.1334
+  },
+  {
+    "name": "Ardmore, OK",
+    "lat": 34.1743,
+    "lon": -97.1436
+  },
+  {
+    "name": "Pauls Valley, OK",
+    "lat": 34.7401,
+    "lon": -97.2222
+  },
+  {
+    "name": "Purcell, OK",
+    "lat": 35.0137,
+    "lon": -97.3611
+  },
+  {
+    "name": "Norman, OK",
+    "lat": 35.2226,
+    "lon": -97.4395
+  },
+  {
+    "name": "Oklahoma City, OK",
+    "lat": 35.4676,
+    "lon": -97.5164
+  }
 ]

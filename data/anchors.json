@@ -1,15 +1,11 @@
 [
-  {"name": "Green River, UT", "highway": "I-70", "lat": 38.9953, "lon": -110.1480},
-  {"name": "Grand Junction, CO", "highway": "I-70", "lat": 39.1004, "lon": -108.4485},
-  {"name": "Vernal, UT", "highway": "US-40", "lat": 40.4555, "lon": -109.5287},
-  {"name": "Craig, CO", "highway": "US-40", "lat": 40.5153, "lon": -107.5464},
-  {"name": "Steamboat Springs, CO", "highway": "US-40", "lat": 40.4850, "lon": -106.8317},
-  {"name": "Walden, CO", "highway": "CO-125", "lat": 40.7316, "lon": -106.2839},
-  {"name": "Medicine Bow, WY", "highway": "US-30", "lat": 41.8969, "lon": -106.2020},
-  {"name": "Fort Collins, CO", "highway": "I-25", "lat": 40.5853, "lon": -104.9990},
-  {"name": "Waco, TX", "highway": "I-35", "lat": 31.5493, "lon": -97.1300},
-  {"name": "Corsicana, TX", "highway": "I-45", "lat": 32.0954, "lon": -96.4689},
-  {"name": "Ardmore, OK", "highway": "I-35", "lat": 34.1743, "lon": -97.1436},
-  {"name": "Yuma, AZ", "highway": "I-8", "lat": 32.6927, "lon": -114.6277},
-  {"name": "Blythe, CA", "highway": "I-10", "lat": 33.6103, "lon": -114.5964}
+  {"name": "Nowra, NSW", "highway": "A1 Princes Hwy", "lat": -34.8736, "lon": 150.6025},
+  {"name": "Bega, NSW", "highway": "A1 Princes Hwy", "lat": -36.6739, "lon": 149.8417},
+  {"name": "Sale, VIC", "highway": "A1 Princes Hwy", "lat": -38.1065, "lon": 147.0680},
+  {"name": "Canberra, ACT", "highway": "B23 Monaro Hwy", "lat": -35.2809, "lon": 149.1300},
+  {"name": "Bathurst, NSW", "highway": "A41 Olympic Hwy", "lat": -33.4193, "lon": 149.5775},
+  {"name": "Tamworth, NSW", "highway": "A15 New England Hwy", "lat": -31.0927, "lon": 150.9290},
+  {"name": "Armidale, NSW", "highway": "A15 New England Hwy", "lat": -30.5120, "lon": 151.6660},
+  {"name": "Warwick, QLD", "highway": "A15 New England Hwy", "lat": -28.2152, "lon": 152.0350},
+  {"name": "Dubbo, NSW", "highway": "A39 Newell Hwy", "lat": -32.2430, "lon": 148.6011}
 ]

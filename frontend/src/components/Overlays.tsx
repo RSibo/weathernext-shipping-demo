@@ -160,7 +160,7 @@ export function BootScreen({ error, onRetry }: { error?: string; onRetry: () => 
       ) : (
         <div>
           <p className="shimmer-text text-sm font-medium">Loading the WeatherNext 3 forecast</p>
-          <p className="mt-1 text-xs text-ink-4">36 hours of wind over the Mountain West</p>
+          <p className="mt-1 text-xs text-ink-4">36 hours of wind over Eastern Australia (Sydney · Brisbane · Melbourne)</p>
         </div>
       )}
     </div>

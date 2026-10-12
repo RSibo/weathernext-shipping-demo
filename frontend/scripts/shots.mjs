@@ -20,6 +20,7 @@ const CANDIDATES = [
   process.env.CHROMIUM_PATH,
   path.join(os.homedir(), ".cache/ms-playwright/chromium-1117/chrome-linux/chrome"),
   "/usr/bin/chromium",
+  "/usr/bin/google-chrome",
 ].filter(Boolean);
 const CHROMIUM_PATH = CANDIDATES.find((p) => fs.existsSync(p));
 

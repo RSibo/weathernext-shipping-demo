@@ -1,113 +1,113 @@
 {
-  "_comment": "Showcase fleet. Offsets are hours relative to the story's 'now' (replay: forecast init + replay_now_offset_hours = 16Z, 10:00 MDT). One storm, five trucks, four decisions.",
-  "replay_now_offset_hours": 10,
+  "_comment": "Australian East Coast showcase fleet (Sydney, Brisbane, Melbourne). Offsets are hours relative to the story's 'now' (replay: forecast init + replay_now_offset_hours = 22Z, 09:00 AEDT / 08:00 AEST). Five trucks across Sydney, Brisbane, and Melbourne, four dispatch decisions.",
+  "replay_now_offset_hours": 16,
   "shipments": [
     {
       "shipment_id": "SHP-2001",
-      "carrier": "Wasatch Freight Lines",
+      "carrier": "Southern Cross Linehaul",
       "cargo_description": "Empty 53' dry van (backhaul)",
-      "timezone": "America/Denver",
+      "timezone": "Australia/Sydney",
       "origin": {
-        "name": "Salt Lake City, UT",
-        "lat": 40.7608,
-        "lon": -111.891,
+        "name": "Sydney, NSW",
+        "lat": -33.8688,
+        "lon": 151.2093,
         "eta_offset_hours": 0
       },
       "waypoints": [],
       "destination": {
-        "name": "Denver, CO",
-        "lat": 39.7392,
-        "lon": -104.9903,
-        "eta_offset_hours": 8
-      },
-      "deadline_offset_hours": 9
-    },
-    {
-      "shipment_id": "SHP-2002",
-      "carrier": "Wasatch Freight Lines",
-      "cargo_description": "Steel coils, flatbed",
-      "timezone": "America/Denver",
-      "origin": {
-        "name": "Salt Lake City, UT",
-        "lat": 40.7608,
-        "lon": -111.891,
-        "eta_offset_hours": 0
-      },
-      "waypoints": [],
-      "destination": {
-        "name": "Denver, CO",
-        "lat": 39.7392,
-        "lon": -104.9903,
-        "eta_offset_hours": 8
+        "name": "Melbourne, VIC",
+        "lat": -37.8136,
+        "lon": 144.9631,
+        "eta_offset_hours": 9
       },
       "deadline_offset_hours": 11
     },
     {
-      "shipment_id": "SHP-2003",
-      "carrier": "High Plains Carriers",
-      "cargo_description": "Empty 53' dry van (repositioning)",
-      "timezone": "America/Denver",
+      "shipment_id": "SHP-2002",
+      "carrier": "Southern Cross Linehaul",
+      "cargo_description": "Steel coils, flatbed",
+      "timezone": "Australia/Sydney",
       "origin": {
-        "name": "Rock Springs, WY",
-        "lat": 41.5875,
-        "lon": -109.2029,
+        "name": "Sydney, NSW",
+        "lat": -33.8688,
+        "lon": 151.2093,
         "eta_offset_hours": 0
       },
       "waypoints": [],
       "destination": {
-        "name": "Cheyenne, WY",
-        "lat": 41.14,
-        "lon": -104.8202,
-        "eta_offset_hours": 4
+        "name": "Melbourne, VIC",
+        "lat": -37.8136,
+        "lon": 144.9631,
+        "eta_offset_hours": 9
       },
-      "deadline_offset_hours": 20
+      "deadline_offset_hours": 12
+    },
+    {
+      "shipment_id": "SHP-2003",
+      "carrier": "Pacific Coast Express",
+      "cargo_description": "Empty 53' dry van (repositioning)",
+      "timezone": "Australia/Sydney",
+      "origin": {
+        "name": "Sydney, NSW",
+        "lat": -33.8688,
+        "lon": 151.2093,
+        "eta_offset_hours": 0
+      },
+      "waypoints": [],
+      "destination": {
+        "name": "Brisbane, QLD",
+        "lat": -27.4698,
+        "lon": 153.0251,
+        "eta_offset_hours": 10
+      },
+      "deadline_offset_hours": 24
     },
     {
       "shipment_id": "SHP-2004",
-      "carrier": "Desert Sun Transport",
+      "carrier": "Murray Valley Freight",
       "cargo_description": "Bulk cement, flatbed",
-      "timezone": "America/Phoenix",
+      "timezone": "Australia/Melbourne",
       "origin": {
-        "name": "Phoenix, AZ",
-        "lat": 33.4484,
-        "lon": -112.074,
+        "name": "Melbourne, VIC",
+        "lat": -37.8136,
+        "lon": 144.9631,
         "eta_offset_hours": 0
       },
       "waypoints": [],
       "destination": {
-        "name": "Los Angeles, CA",
-        "lat": 34.0522,
-        "lon": -118.2437,
-        "eta_offset_hours": 6
+        "name": "Sydney, NSW",
+        "lat": -33.8688,
+        "lon": 151.2093,
+        "eta_offset_hours": 9
       },
-      "deadline_offset_hours": 9
+      "deadline_offset_hours": 12
     },
     {
       "shipment_id": "SHP-2005",
-      "carrier": "Lone Star Freight",
+      "carrier": "Outback & Newell Logistics",
       "cargo_description": "Automotive parts, dry van",
-      "timezone": "America/Chicago",
+      "timezone": "Australia/Brisbane",
       "origin": {
-        "name": "Houston, TX",
-        "lat": 29.7604,
-        "lon": -95.3698,
+        "name": "Brisbane, QLD",
+        "lat": -27.4698,
+        "lon": 153.0251,
         "eta_offset_hours": 0
       },
       "waypoints": [
         {
-          "name": "Dallas, TX",
-          "lat": 32.7767,
-          "lon": -96.8088,
-          "eta_offset_hours": 4
+          "name": "Dubbo, NSW",
+          "lat": -32.2430,
+          "lon": 148.6011,
+          "eta_offset_hours": 9
         }
       ],
       "destination": {
-        "name": "Oklahoma City, OK",
-        "lat": 35.4676,
-        "lon": -97.5164,
-        "eta_offset_hours": 7
+        "name": "Melbourne, VIC",
+        "lat": -37.8136,
+        "lon": 144.9631,
+        "eta_offset_hours": 17
       },
-      "deadline_offset_hours": 10
+      "deadline_offset_hours": 20
     }
   ]
 }

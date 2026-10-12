@@ -26,11 +26,92 @@ from typing import Optional
 import anyio
 from mcp.server import MCPServer
 
-from schemas import DetourRequest, DetourResult, RouteWeatherRequest, RouteWeatherResult, Waypoint
+from pathlib import Path
+from datetime import datetime, timezone
+import shapely.geometry
+
+import config
+from schemas import (
+    Coordinate,
+    DetourRequest,
+    DetourResult,
+    HazardPolygon,
+    RouteWeatherRequest,
+    RouteWeatherResult,
+    Waypoint,
+    WeatherObservation,
+)
+from tools.cube import ForecastCube
 from tools.routing import compute_detour
+from tools.thresholds import evaluate_breach
 from tools.weather import run_weather_check
 
 SERVER_NAME = "mcp-route-disruption-server"
+
+
+def _cube_weather_check(request: RouteWeatherRequest) -> RouteWeatherResult:
+    """Evaluate waypoints against the local WeatherNext 3 ForecastCube (replay/cached scene)."""
+    cube_path = Path(config.REPLAY_CUBE_PATH)
+    if not cube_path.exists():
+        raise RuntimeError(f"Replay cube not found at {cube_path}")
+    cube = ForecastCube.load_npz(cube_path)
+    observations: list[WeatherObservation] = []
+    unmonitored: list[str] = []
+
+    for wp in request.waypoints:
+        eta = wp.eta.astimezone(timezone.utc)
+        # If caller passes a current/future timestamp outside the replay window, map to the same
+        # hour offset inside the 48h cube so ad-hoc assistant queries still resolve cleanly.
+        query_time = eta
+        if not cube.covers_time(query_time):
+            span_s = int(cube.times_s[-1] - cube.times_s[0]) or 3600
+            offset_s = int(eta.timestamp() - cube.times_s[0]) % span_s
+            query_time = datetime.fromtimestamp(int(cube.times_s[0]) + offset_s, tz=timezone.utc)
+
+        hours = cube.window(wp.location.lat, wp.location.lon, query_time, window_h=1.0)
+        if not hours:
+            unmonitored.append(wp.name)
+            continue
+
+        best = max(hours, key=lambda h: (h.wind_mph, h.precip_mm_hr))
+        breached, reasons = evaluate_breach(
+            wind_speed_mph=best.wind_mph,
+            precip_mm_hr=best.precip_mm_hr,
+            temp_f=best.temp_f,
+            cargo_description=request.cargo_description,
+        )
+        hazard_polygon = None
+        if breached:
+            idx = cube.cell_index(wp.location.lat, wp.location.lon)
+            if idx is not None:
+                cell_box = shapely.geometry.box(*cube.cell_bounds(*idx)).buffer(
+                    config.HAZARD_BUFFER_DEGREES
+                )
+                hazard_polygon = HazardPolygon(
+                    geojson=shapely.geometry.mapping(cell_box),
+                    waypoint_name=wp.name,
+                    reason_summary="; ".join(reasons),
+                )
+        observations.append(
+            WeatherObservation(
+                waypoint_name=wp.name,
+                location=wp.location,
+                valid_time=best.t,
+                wind_speed_mph=round(best.wind_mph, 1),
+                precip_mm_hr=round(best.precip_mm_hr, 2),
+                temp_f=round(best.temp_f, 1),
+                breached=breached,
+                reasons=reasons,
+                hazard_polygon=hazard_polygon,
+                forecast_issued_at=cube.meta.init_time,
+            )
+        )
+
+    return RouteWeatherResult(
+        shipment_id=request.shipment_id,
+        observations=observations,
+        unmonitored_waypoints=unmonitored if unmonitored else None,
+    )
 
 
 def build_server() -> MCPServer:
@@ -38,10 +119,11 @@ def build_server() -> MCPServer:
         name=SERVER_NAME,
         version="0.1.0",
         instructions=(
-            "Weather-aware freight routing tools backed by WeatherNext 3 (BigQuery GIS) and the "
-            "Google Maps Routes API. check_route_weather reports deterministic threshold breaches "
-            "and hazard polygons per waypoint; compute_detour_route finds an alternative route "
-            "that avoids supplied hazard polygons, or the least-hazardous one if none is clean."
+            "Weather-aware freight routing and forecast tools backed by WeatherNext 3 and the "
+            "Google Maps Routes API. Use get_weather_forecast for general point/waypoint weather "
+            "queries (e.g. from an executive assistant like Chloe), get_fleet_weather_status for "
+            "active freight fleet disruption status, check_route_weather for shipment waypoint "
+            "threshold breaches, and compute_detour_route to route around hazard polygons."
         ),
     )
 
@@ -67,6 +149,61 @@ def build_server() -> MCPServer:
         )
         # BigQuery client calls are blocking, so they run in a worker thread, off the event loop.
         return await anyio.to_thread.run_sync(lambda: run_weather_check(request))
+
+    @server.tool(
+        name="get_weather_forecast",
+        title="Get WeatherNext 3 forecast for locations",
+        description=(
+            "Query WeatherNext 3 forecast conditions (wind speed mph, precipitation mm/hr, "
+            "temperature F, and safety threshold breaches) for one or more locations and ETAs. "
+            "Uses the local WeatherNext 3 forecast cube first and falls back to live BigQuery."
+        ),
+    )
+    async def get_weather_forecast(
+        waypoints: list[Waypoint],
+        cargo_description: Optional[str] = None,
+        shipment_id: str = "adhoc-query",
+    ) -> RouteWeatherResult:
+        """Args: waypoints — list of {name, location: {lat, lon}, eta} to check.
+        cargo_description — optional cargo/vehicle type ('dry van', 'empty', 'flatbed').
+        shipment_id — optional caller correlation ID (default 'adhoc-query')."""
+        request = RouteWeatherRequest(
+            shipment_id=shipment_id, waypoints=waypoints, cargo_description=cargo_description
+        )
+        return await anyio.to_thread.run_sync(lambda: _cube_weather_check(request))
+
+    @server.tool(
+        name="get_fleet_weather_status",
+        title="Get fleet weather disruption summary",
+        description=(
+            "Return the current WeatherNext 3 fleet scan summary and per-shipment weather risk "
+            "assessments (CLEAR, MONITOR, ACTION) across all monitored freight lanes."
+        ),
+    )
+    async def get_fleet_weather_status(shipment_id: Optional[str] = None) -> dict:
+        """Args: shipment_id — optional shipment ID (e.g. 'SHP-2001') to filter to a single lane."""
+        def _scan() -> dict:
+            from api.fleet import scan_fleet
+            from api.state import build_state
+
+            st = build_state()
+            scene = st.scene(None)
+            if scene is None:
+                return {"error": "No forecast scene available"}
+            fl = scan_fleet(scene, st.routes)
+            data = fl.model_dump(mode="json", exclude_none=True)
+            if shipment_id:
+                data["entries"] = [
+                    e for e in data["entries"] if e["shipment"]["shipment_id"] == shipment_id
+                ]
+            for e in data["entries"]:
+                e.pop("samples", None)
+                if "route" in e and e["route"]:
+                    e["route"].pop("path", None)
+                    e["route"].pop("path_t_s", None)
+            return data
+
+        return await anyio.to_thread.run_sync(_scan)
 
     @server.tool(
         name="compute_detour_route",

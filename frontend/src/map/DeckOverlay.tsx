@@ -62,14 +62,19 @@ export function DeckOverlay() {
   // Created in the effect (not render) so StrictMode's mount/unmount/mount leaves one live overlay.
   useEffect(() => {
     if (!map || !rendering || rendering === "UNINITIALIZED") return;
-    map.getDiv().querySelector(DECK_CONTAINER)?.remove();
+    const div = map.getDiv?.();
+    if (!div) {
+      useStore.getState().setMapsFailed();
+      return;
+    }
+    div.querySelector(DECK_CONTAINER)?.remove();
     const o = new GoogleMapsOverlay({ interleaved: true, ...pickHandlers() });
     o.setMap(map);
     overlay.current = o;
     if (import.meta.env.DEV) (window as unknown as { __overlay?: GoogleMapsOverlay }).__overlay = o;
     return () => {
       o.finalize();
-      map.getDiv().querySelector(DECK_CONTAINER)?.remove();
+      map.getDiv?.()?.querySelector(DECK_CONTAINER)?.remove();
       overlay.current = null;
     };
   }, [map, rendering]);

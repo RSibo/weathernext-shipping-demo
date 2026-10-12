@@ -30,6 +30,7 @@ from agent.runner import RunContext
 from api import streaming
 from api.fleet import Fleet, scan_fleet
 from api.state import AppState, Scene, build_state
+from mcp_server import build_server as build_mcp_server
 
 log = logging.getLogger(__name__)
 
@@ -51,6 +52,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="WeatherNext 3 Route Disruption Agent", version=VERSION, lifespan=lifespan)
 # Cloud Run does not compress. Starlette's GZip skips text/event-stream, so SSE still streams.
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+# Mount MCP server at /mcp (exposes /mcp/sse and /mcp/messages/ for Chloe / ADK McpToolset)
+app.mount("/mcp", build_mcp_server().sse_app(host="0.0.0.0"), name="mcp")
 
 
 def get_state(request: Request) -> AppState:
@@ -201,7 +204,7 @@ if DIST.is_dir():
 
     @app.get("/{path:path}", include_in_schema=False)
     async def spa(path: str) -> FileResponse:
-        if path.startswith("api/"):
+        if path.startswith(("api/", "mcp/")):
             raise HTTPException(404)
         f = (DIST / path).resolve()
         if path and f.is_file() and DIST in f.parents:

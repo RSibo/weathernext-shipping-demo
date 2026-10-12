@@ -173,7 +173,7 @@ def test_a_crash_mid_run_is_an_error_event_on_a_200(api, monkeypatch):
     assert api.state.limiter._sem._value == 2
 
 
-def test_golden_loader_skips_broken_and_partial_files(tmp_path):
+def test_golden_loader_skips_broken_and_partial_files(tmp_path, api):
     good = _record_hero()
     (tmp_path / "good.jsonl").write_text("".join(e.model_dump_json(exclude_none=True) + "\n" for e in good))
     (tmp_path / "partial.jsonl").write_text(good[0].model_dump_json() + "\n")

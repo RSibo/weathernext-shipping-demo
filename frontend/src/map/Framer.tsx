@@ -14,7 +14,8 @@ export function Framer() {
     const s = useStore.getState();
     const b = frameBounds(s.frameTarget, s.fleet?.entries ?? [], s.selectedId, selectRun(s));
     if (!b) return;
-    const div = map.getDiv();
+    const div = map.getDiv?.();
+    if (!div) return;
     const to = fitCamera(b, div.clientWidth, div.clientHeight, panelPadding(window.innerWidth, s.stage));
     const c = map.getCenter();
     const from: Camera = { lon: c?.lng() ?? to.lon, lat: c?.lat() ?? to.lat, zoom: (map.getZoom() ?? to.zoom + 1) - 1 };

@@ -32,7 +32,7 @@ export function TimeScrubber({ className }: { className?: string }) {
   const entry = useStore(selectEntry);
   const run = useStore(selectRun);
 
-  const tz = entry?.shipment.timezone ?? "America/Denver";
+  const tz = entry?.shipment.timezone ?? "Australia/Sydney";
   const t0 = wind?.initTime ?? 0;
   const t1 = wind ? wind.times[wind.times.length - 1] : 1;
   const pct = (t: number) => `${(((t - t0) / (t1 - t0)) * 100).toFixed(3)}%`;
